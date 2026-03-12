@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus TMS — Settlement</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;--border2:#C9D4E3;
+  --text:#0D1829;--text2:#4A5568;--text3:#8A9AB0;
+  --blue:#1A56DB;--blue-l:#EBF2FF;--blue-d:#1245B8;
+  --green:#059669;--green-l:#ECFDF5;--green-d:#047857;
+  --orange:#D97706;--orange-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --navy:#0D1829;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(0,0,0,.09),0 2px 4px rgba(0,0,0,.05);
+  --sh-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+  --r:10px;--r-sm:6px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+/* AUTH */
+.auth-screen{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:9999}
+.auth-box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:40px 44px;width:360px;text-align:center}
+.auth-logo{font-family:var(--mono);font-size:22px;font-weight:500;color:#fff;margin-bottom:4px}
+.auth-sub{font-size:13px;color:rgba(255,255,255,.35);margin-bottom:28px}
+.auth-input{width:100%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:12px 16px;font-family:var(--mono);font-size:15px;color:#fff;text-align:center;letter-spacing:3px;outline:none}
+.auth-input:focus{border-color:var(--blue)}
+.auth-btn{margin-top:14px;width:100%;background:var(--blue);color:#fff;border:none;border-radius:8px;padding:12px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer}
+.auth-btn:hover{background:var(--blue-d)}
+.auth-err{margin-top:10px;font-size:12px;color:#F87171;min-height:18px}
+
+/* SIDEBAR */
+.sidebar{width:216px;min-width:216px;background:var(--navy);height:100vh;position:sticky;top:0;display:flex;flex-direction:column}
+.logo-area{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-mark{font-family:var(--mono);font-size:17px;font-weight:500;color:#fff;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.conn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#374151;margin-right:5px;vertical-align:middle}
+.conn-dot.ok{background:#34D399}.conn-dot.err{background:#F87171}.conn-dot.loading{background:#FCD34D;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section{margin-bottom:18px}
+.nav-section-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.28);padding:0 8px 5px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(26,86,219,.3);color:#fff}
+.nav-ic{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-ic{opacity:1}
+.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.35)}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow-x:hidden}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.topbar-title{font-size:15px;font-weight:700}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.content{padding:22px 24px;flex:1}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue-d)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:var(--green-d)}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-outline:hover{background:var(--surface2)}
+.btn-ghost{background:transparent;color:var(--text3);border:1px solid transparent}.btn-ghost:hover{background:var(--surface2);color:var(--text2)}
+.btn-danger{background:var(--red-l);color:var(--red);border:1px solid #FECACA}.btn-danger:hover{background:#FEE2E2}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-lg{padding:11px 22px;font-size:14px}
+
+/* STEP INDICATOR */
+.step-indicator{display:flex;gap:0;margin-bottom:24px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border)}
+.step{flex:1;padding:10px 16px;font-size:12px;font-weight:600;color:var(--text3);background:var(--surface);text-align:center;position:relative}
+.step.active{background:var(--blue);color:#fff}
+.step.done{background:var(--green-l);color:var(--green-d)}
+.step-num{font-family:var(--mono);font-weight:700;margin-right:6px}
+
+/* PERIOD BAR */
+.period-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:var(--sh)}
+.period-label{font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px}
+.period-input{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none}
+.period-input:focus{border-color:var(--blue)}
+.period-sep{font-size:12px;color:var(--text3)}
+.period-quick{font-size:12px;color:var(--blue);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* UPLOAD GRID */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.upload-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.upload-card{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--r);padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.upload-card:hover,.upload-card.drag{border-color:var(--blue);background:var(--blue-l)}
+.upload-card.done{border-style:solid;border-color:var(--green);background:var(--green-l);cursor:default}
+.upload-card.done:hover{background:var(--green-l)}
+.upload-card.optional{border-color:var(--border);border-style:dashed}
+.upload-card-icon{font-size:24px;margin-bottom:6px}
+.upload-card-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.upload-card-sub{font-size:11px;color:var(--text3)}
+.upload-card-badge{display:inline-flex;align-items:center;gap:5px;margin-top:6px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.upload-card-badge.success{background:#D1FAE5;color:var(--green)}
+.upload-card-badge.waiting{background:var(--surface2);color:var(--text3)}
+.upload-card-badge.opt{background:var(--blue-l);color:var(--blue-d)}
+.upload-card-filename{font-family:var(--mono);font-size:10px;color:var(--green-d);margin-top:3px}
+.hint-box{background:var(--blue-l);border:1px solid #BFDBFE;border-radius:var(--r-sm);padding:10px 14px;font-size:12px;color:var(--blue-d);margin-bottom:16px}
+
+/* TRUCK ASSIGN TABLE */
+.assign-table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--r);overflow:hidden;border:1px solid var(--border);box-shadow:var(--sh);margin-bottom:20px}
+.assign-table th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border2);text-align:left}
+.assign-table td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle}
+.assign-table tr:last-child td{border-bottom:none}
+.assign-table tr:hover td{background:var(--surface2)}
+.truck-pill{display:inline-flex;align-items:center;gap:5px;background:var(--navy);color:#fff;padding:3px 10px;border-radius:20px;font-family:var(--mono);font-size:12px;font-weight:500}
+.type-badge{padding:2px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-P{background:#DBEAFE;color:#1E40AF}
+.badge-POO{background:#EDE9FE;color:#6D28D9}
+.badge-OO{background:#F5F3FF;color:#7C3AED}
+.badge-CT{background:#FEF3C7;color:#92400E}
+.badge-Driver{background:var(--surface2);color:var(--text2)}
+.gross-mono{font-family:var(--mono);font-weight:600;color:var(--green)}
+select.inline-sel{background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:4px 8px;font-family:var(--sans);font-size:12px;color:var(--text);outline:none;cursor:pointer}
+select.inline-sel:focus{border-color:var(--blue)}
+
+/* SUMMARY BAR */
+.summary-bar{background:var(--navy);border-radius:var(--r);padding:16px 22px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;box-shadow:var(--sh-md)}
+.sum-stat{text-align:center}
+.sum-label{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px}
+.sum-val{font-family:var(--mono);font-size:20px;font-weight:500;color:#fff}
+.sum-val.g{color:#34D399}.sum-val.y{color:#FCD34D}
+
+/* SETTLEMENT CARDS */
+.settle-cards{display:flex;flex-direction:column;gap:14px}
+.settle-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh);transition:box-shadow .15s}
+.settle-card:hover{box-shadow:var(--sh-md)}
+.settle-card-head{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sc-driver{font-size:15px;font-weight:700}
+.sc-meta{font-size:12px;color:var(--text3);margin-top:2px}
+.sc-right{display:flex;align-items:center;gap:16px}
+.sc-net-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;text-align:right;margin-bottom:2px}
+.sc-net-val{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--green);text-align:right}
+.sc-net-val.oo{color:var(--blue)}
+.settle-card-body{display:none}
+.settle-card-body.open{display:block}
+.sc-body-inner{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--border)}
+.sc-loads{border-right:1px solid var(--border);padding:16px 20px}
+.sc-calc{padding:16px 20px}
+.sc-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* LOADS MINI TABLE */
+.loads-tbl{width:100%;border-collapse:collapse}
+.loads-tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:5px 6px;border-bottom:1px solid var(--border);text-align:left}
+.loads-tbl th.r,.loads-tbl td.r{text-align:right}
+.loads-tbl td{padding:7px 6px;font-size:12px;border-bottom:1px solid var(--border)}
+.loads-tbl tr:last-child td{border-bottom:none}
+.loads-tbl .total-row td{background:var(--surface2);font-weight:700;font-size:12px}
+.tour-badge{display:inline-flex;padding:1px 7px;background:var(--purple-l);color:var(--purple);border-radius:20px;font-size:10px;font-weight:700;margin-left:4px}
+
+/* SETTLEMENT CALC */
+.ded-row{display:flex;align-items:baseline;gap:4px;padding:5px 0}
+.ded-label{font-size:12px;color:var(--text2);white-space:nowrap;flex-shrink:0}
+.ded-label.indent{padding-left:12px;font-size:11px}
+.ded-dots{flex:1;border-bottom:1px dotted var(--border2);margin:0 6px;position:relative;top:-3px}
+.ded-val{font-family:var(--mono);font-size:12px;font-weight:500;white-space:nowrap;flex-shrink:0}
+.ded-val.red{color:var(--red)}.ded-val.grn{color:var(--green)}.ded-val.bold{font-size:16px;font-weight:700}
+.ded-row.gross-row .ded-label{font-weight:700;font-size:13px;color:var(--text)}
+.ded-row.gross-row .ded-val{font-size:14px;font-weight:700;color:var(--text)}
+.ded-row.net-row{border-top:2px solid var(--navy);margin-top:10px;padding-top:10px}
+.ded-row.net-row .ded-label{font-size:14px;font-weight:800;color:var(--navy)}
+.ded-row.net-row .ded-val{font-size:18px;font-weight:800;color:var(--green)}
+.adj-section{padding-top:8px;border-top:1px dashed var(--border2);margin-top:8px}
+.adj-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.adj-input{flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:5px 8px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none}
+.adj-input:focus{border-color:var(--blue)}
+
+/* PRINT CARD */
+.settle-card-foot{padding:10px 20px;border-top:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:8px;justify-content:flex-end}
+
+/* TAG */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-green{background:var(--green-l);color:var(--green)}
+.tag-orange{background:var(--orange-l);color:var(--orange)}
+.tag-purple{background:var(--purple-l);color:var(--purple)}
+.tag-blue{background:var(--blue-l);color:var(--blue)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--navy);color:#fff;padding:11px 22px;border-radius:var(--r);font-size:13px;font-weight:500;box-shadow:var(--sh-lg);z-index:999;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fadeUp .22s ease forwards}
+
+@media print{body,html{margin:0;padding:0}.no-print{display:none!important}.print-doc{display:block!important}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">Nexus TMS</div>
+    <div class="auth-sub">ZTA Transportation LLC</div>
+    <input class="auth-input" type="password" id="auth-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkAuth()">
+    <button class="auth-btn" onclick="checkAuth()">Enter</button>
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="app-sidebar" style="display:none">
+  <div class="logo-area">
+    <div class="logo-mark">Nexus TMS</div>
+    <div class="logo-sub"><span class="conn-dot" id="conn-dot"></span><span id="conn-txt">connecting…</span></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <button class="nav-item" onclick="toast('Load Board — coming soon')">
+        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        Load Board
+      </button>
+      <button class="nav-item" onclick="toast('Loads — coming soon')">
+        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+        Loads
+      </button>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Finance</div>
+      <button class="nav-item active">
+        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+        Weekly Settlement
+      </button>
+      <button class="nav-item" onclick="toast('P&L — coming soon')">
+        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        P&L Analytics
+      </button>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Fleet</div>
+      <button class="nav-item" onclick="window.open('nexus-tms-equipment-5.html','_blank')">
+        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
+        Equipment
+      </button>
+      <button class="nav-item" onclick="window.open('nexus-tms-drivers-5.html','_blank')">
+        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+        Drivers
+      </button>
+    </div>
+  </nav>
+  <div class="sidebar-foot">ZTA Transportation LLC</div>
+</aside>
+
+<!-- MAIN -->
+<main class="main" id="app-main" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">Weekly Settlement</div>
+    <div class="topbar-actions">
+      <span id="week-label" style="font-size:12px;color:var(--text3);font-family:var(--mono)"></span>
+      <button class="btn btn-outline btn-sm" onclick="resetAll()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Reset
+      </button>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- STEP INDICATOR -->
+    <div class="step-indicator">
+      <div class="step active" id="step1"><span class="step-num">1</span>Upload Files</div>
+      <div class="step" id="step3"><span class="step-num">2</span>Settlements</div>
+    </div>
+
+    <!-- STEP 1 ─────────────────────────────────────────────────────────────── -->
+    <div id="section-step1">
+
+      <!-- PERIOD -->
+      <div class="period-bar">
+        <span class="period-label">Week</span>
+        <input type="date" class="period-input" id="period-from">
+        <span class="period-sep">→</span>
+        <input type="date" class="period-input" id="period-to">
+        <span class="period-quick" onclick="setLastWeek()">Set last week</span>
+        <span class="period-quick" onclick="setThisWeek()">Set this week</span>
+      </div>
+
+      <!-- FILE UPLOADS: required -->
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:10px">Required</div>
+      <div class="upload-grid" style="margin-bottom:20px">
+        <div class="upload-card" id="card-trips" onclick="document.getElementById('file-trips').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'trips')">
+          <div class="upload-card-icon">📋</div>
+          <div class="upload-card-title">Trips CSV</div>
+          <div class="upload-card-sub">Amazon Relay trips export</div>
+          <div id="status-trips"><span class="upload-card-badge waiting">⏳ Waiting</span></div>
+        </div>
+        <input type="file" id="file-trips" accept=".csv" style="display:none" onchange="handleFile(event,'trips')">
+
+        <div class="upload-card" id="card-invoice" onclick="document.getElementById('file-invoice').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'invoice')">
+          <div class="upload-card-icon">💳</div>
+          <div class="upload-card-title">Invoice XLSX / CSV</div>
+          <div class="upload-card-sub">Amazon payment invoice</div>
+          <div id="status-invoice"><span class="upload-card-badge waiting">⏳ Waiting</span></div>
+        </div>
+        <input type="file" id="file-invoice" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event,'invoice')">
+      </div>
+
+      <!-- FILE UPLOADS: optional -->
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:10px">Optional — Deductions</div>
+      <div class="upload-grid" style="margin-bottom:16px">
+        <div class="upload-card optional" id="card-ezpass" onclick="document.getElementById('file-ezpass').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'ezpass')">
+          <div class="upload-card-icon">🛣️</div>
+          <div class="upload-card-title">EZ Pass CSV</div>
+          <div class="upload-card-sub">Tolls by TAG ID</div>
+          <div id="status-ezpass"><span class="upload-card-badge opt">Optional</span></div>
+        </div>
+        <input type="file" id="file-ezpass" accept=".csv" style="display:none" onchange="handleFile(event,'ezpass')">
+
+        <div class="upload-card optional" id="card-fuel" onclick="document.getElementById('file-fuel').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'fuel')">
+          <div class="upload-card-icon">⛽</div>
+          <div class="upload-card-title">Fuel Card CSV</div>
+          <div class="upload-card-sub">Fuel by Card #</div>
+          <div id="status-fuel"><span class="upload-card-badge opt">Optional</span></div>
+        </div>
+        <input type="file" id="file-fuel" accept=".csv" style="display:none" onchange="handleFile(event,'fuel')">
+      </div>
+
+      <div class="hint-box">
+        <strong>How it works:</strong> Trips CSV and Invoice are matched by Load ID &amp; Trip ID automatically.
+        EZ Pass tolls match by TAG ID from truck card. Fuel matches by Card # from truck card.
+        PrePass ($7/wk) and Tablet deductions are read automatically from Equipment cards in Supabase.
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary btn-lg" id="btn-process" onclick="processStep1()" disabled>
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Generate Settlements
+        </button>
+        <span id="step1-ready-msg" style="font-size:12px;color:var(--text3)">Upload Trips CSV + Invoice to continue</span>
+      </div>
+    </div>
+
+    <!-- Step 2 removed - goes directly to settlements -->
+
+    <!-- STEP 3 ─────────────────────────────────────────────────────────────── -->
+    <div id="section-step3" style="display:none">
+      <div id="summary-bar-wrap"></div>
+      <div class="settle-cards" id="settle-cards"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-outline" onclick="resetAll()">← New Settlement</button>
+        <button class="btn btn-green btn-lg" onclick="printAllSettlements()">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Print All
+        </button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+const ORG_ID        = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+const AUTH_PASS     = 'zta2026';
+// Dispatch fee comes from truck ded.dispatch.pct
+
+// ══════════════════════════════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════════════════════════════
+function checkAuth() {
+  const pw = document.getElementById('auth-pw').value;
+  if (pw === AUTH_PASS) {
+    sessionStorage.setItem('nxauth','1');
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app-sidebar').style.display = '';
+    document.getElementById('app-main').style.display = '';
+    initApp();
+  } else {
+    document.getElementById('auth-err').textContent = 'Incorrect password';
+  }
+}
+if (sessionStorage.getItem('nxauth') === '1') {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-sidebar').style.display = '';
+  document.getElementById('app-main').style.display = '';
+  window.addEventListener('DOMContentLoaded', initApp);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════
+let S = {
+  trucks:  [],  // from Supabase trucks table
+  drivers: [],  // from Supabase drivers table
+  trips:   null,
+  invoice: null,
+  ezpass:  null, // { tagId -> totalAmt }
+  fuel:    null, // { cardId -> totalAmt }
+  assigns: [],   // [{truck, unit, driverObj, truckObj, loads, gross}]
+  step: 1,
+};
+
+// ══════════════════════════════════════════════════════════════════════
+// SUPABASE FETCH
+// ══════════════════════════════════════════════════════════════════════
+async function sbFetch(table, params='') {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+    }
+  });
+  if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
+  return r.json();
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════
+async function initApp() {
+  setConnStatus('loading', 'loading…');
+  setLastWeek();
+  try {
+    const [trucks, drivers] = await Promise.all([
+      sbFetch('trucks', `org_id=eq.${ORG_ID}&status=eq.active&select=id,unit,owner,driver,driver_type,ded,truck_payment`),
+      sbFetch('drivers', `org_id=eq.${ORG_ID}&status=eq.active&select=id,first,last,type,pay_rate,truck,company`),
+    ]);
+    S.trucks  = trucks;
+    S.drivers = drivers;
+    setConnStatus('ok', `${trucks.length} trucks · ${drivers.length} drivers`);
+  } catch(e) {
+    setConnStatus('err', 'DB error');
+    toast('⚠ Could not load fleet data: ' + e.message);
+  }
+}
+
+function setConnStatus(state, txt) {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-txt');
+  dot.className = 'conn-dot ' + state;
+  lbl.textContent = txt;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PERIOD
+// ══════════════════════════════════════════════════════════════════════
+function setLastWeek() {
+  const today = new Date();
+  const dow   = today.getDay(); // 0=Sun
+  // Last Sat–Fri
+  const lastFri = new Date(today);
+  lastFri.setDate(today.getDate() - ((dow + 2) % 7 + 1));
+  const lastSat = new Date(lastFri);
+  lastSat.setDate(lastFri.getDate() - 6);
+  document.getElementById('period-from').value = fmtDateInput(lastSat);
+  document.getElementById('period-to').value   = fmtDateInput(lastFri);
+  updateWeekLabel();
+}
+function setThisWeek() {
+  const today = new Date();
+  const dow   = today.getDay();
+  const sat   = new Date(today);
+  sat.setDate(today.getDate() - ((dow + 1) % 7));
+  const fri   = new Date(sat);
+  fri.setDate(sat.getDate() + 6);
+  document.getElementById('period-from').value = fmtDateInput(sat);
+  document.getElementById('period-to').value   = fmtDateInput(fri);
+  updateWeekLabel();
+}
+function fmtDateInput(d) {
+  return d.toISOString().split('T')[0];
+}
+function updateWeekLabel() {
+  const f = document.getElementById('period-from').value;
+  const t = document.getElementById('period-to').value;
+  if (f && t) document.getElementById('week-label').textContent = fmtDate(f) + ' — ' + fmtDate(t);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('period-from').addEventListener('change', updateWeekLabel);
+  document.getElementById('period-to').addEventListener('change', updateWeekLabel);
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// FILE HANDLING
+// ══════════════════════════════════════════════════════════════════════
+function handleDrop(e, type) {
+  e.preventDefault();
+  document.getElementById('card-'+type).classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type);
+}
+function handleFile(e, type) {
+  if (e.target.files[0]) processFile(e.target.files[0], type);
+}
+
+function processFile(file, type) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    Papa.parse(file, { header:true, skipEmptyLines:true, encoding:'UTF-8',
+      complete: r => {
+        // Strip BOM from first key if present
+        if (r.data.length && r.meta && r.meta.fields) {
+          const firstField = r.meta.fields[0];
+          if (firstField.charCodeAt(0) === 0xFEFF) {
+            const clean = firstField.slice(1);
+            r.data.forEach(row => { row[clean] = row[firstField]; delete row[firstField]; });
+          }
+        }
+        storeFile(r.data, file.name, type);
+      }
+    });
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      // Try each sheet until we find one with real data columns
+      let data = null;
+      // Prefer 'Payment Details' or any sheet with 'detail' in name
+      const preferred = wb.SheetNames.find(n => n.toLowerCase().includes('detail'));
+      const ordered = preferred
+        ? [preferred, ...wb.SheetNames.filter(n => n !== preferred)]
+        : wb.SheetNames;
+      for (const sname of ordered) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sname]);
+        if (!rows.length) continue;
+        const cols = Object.keys(rows[0]).map(k => k.toLowerCase()).join(',');
+        const hasInvoice = cols.includes('invoice') || cols.includes('gross pay') || cols.includes('trip id');
+        if (hasInvoice) { data = rows; break; }
+      }
+      if (!data) {
+        // Fallback: just take first non-empty sheet
+        for (const sname of wb.SheetNames) {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[sname]);
+          if (rows.length) { data = rows; break; }
+        }
+      }
+      if (data) storeFile(data, file.name, type);
+      else toast('Could not read data from: ' + file.name);
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function storeFile(data, name, hint) {
+  if (!data || !data.length) { toast('Empty file: ' + name); return; }
+  const cols = Object.keys(data[0]).map(k=>k.toLowerCase()).join(',');
+
+  // Auto-detect type
+  // Invoice MUST be checked first — it also contains 'trip id' column
+  const isInvoice = cols.includes('invoice number') || cols.includes('gross pay') || cols.includes('item type');
+  // Trips: must have tractor vehicle id OR driver name (not just trip id)
+  const isTrips   = !isInvoice && (cols.includes('tractor vehicle id') || cols.includes('driver name'));
+  const isEZPass  = !isInvoice && !isTrips && (cols.includes('tag id') || (cols.includes('posting date') && cols.includes('amount')));
+  const isFuel    = !isInvoice && !isTrips && !isEZPass && (cols.includes('card #') || (cols.includes('tran date') && cols.includes('amt')));
+
+  const detected = isInvoice ? 'invoice' : isTrips ? 'trips' : isEZPass ? 'ezpass' : isFuel ? 'fuel' : hint;
+
+  if (detected === 'trips') {
+    S.trips = parseTrips(data);
+    markDone('trips', name, S.trips.length + ' loads');
+  } else if (detected === 'invoice') {
+    S.invoice = parseInvoice(data);
+    markDone('invoice', name, S.invoice.rows.length + ' rows · $' + fmt(S.invoice.total));
+  } else if (detected === 'ezpass') {
+    S.ezpass = parseEZPass(data);
+    markDone('ezpass', name, Object.keys(S.ezpass).length + ' tags');
+  } else if (detected === 'fuel') {
+    S.fuel = parseFuel(data);
+    markDone('fuel', name, Object.keys(S.fuel).length + ' cards');
+  } else {
+    toast('Could not detect file type: ' + name);
+    return;
+  }
+  checkStep1Ready();
+}
+
+function markDone(type, name, detail) {
+  document.getElementById('card-'+type).className = 'upload-card done';
+  document.getElementById('status-'+type).innerHTML =
+    `<span class="upload-card-badge success">✓ ${type === 'trips' ? 'Trips' : type === 'invoice' ? 'Invoice' : type.toUpperCase()}</span>
+     <div class="upload-card-filename">${name}</div>
+     <div style="font-size:11px;color:var(--green-d);margin-top:2px">${detail}</div>`;
+}
+
+function checkStep1Ready() {
+  const ready = S.trips && S.invoice;
+  document.getElementById('btn-process').disabled = !ready;
+  document.getElementById('step1-ready-msg').textContent = ready
+    ? '✓ Ready — click to process'
+    : 'Upload Trips CSV + Invoice to continue';
+  document.getElementById('step1-ready-msg').style.color = ready ? 'var(--green)' : 'var(--text3)';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PARSERS
+// ══════════════════════════════════════════════════════════════════════
+function parseTrips(rows) {
+  return rows.map(r => ({
+    load_id:       str(r['Load ID']       || r['load_id']       || r['LoadID']),
+    trip_id:       (()=>{ const t=str(r['Trip ID']||r['trip_id']||r['TripID']); return (t && t.startsWith('T-')) ? t : null; })(),
+    driver:        str(r['Driver Name']   || r['driver_name']   || r['Driver']),
+    truck:         str(r['Tractor Vehicle ID'] || r['truck_id'] || r['truck']   || r['Tractor']),
+    trailer:       str(r['Trailer ID']    || r['trailer_id']    || ''),
+    origin:        str(r['Stop 1']        || r['origin']        || ''),
+    destination:   str(r['Stop 2']        || r['destination']   || r['Stop 2 Facility Code'] || ''),
+    miles:         parseFloat(r['Estimate Distance'] || r['miles'] || 0) || 0,
+    pickup_date:   str(r['Stop 1 Planned Arrival Date'] || r['pickup_date'] || ''),
+    delivery_date: str(r['Stop 2 Planned Arrival Date'] || r['delivery_date'] || ''),
+    status:        str(r['Load Execution Status'] || 'completed').toLowerCase().includes('cancel') ? 'cancelled' : 'completed',
+  })).filter(r => r.load_id);
+}
+
+function parseInvoice(rows) {
+  const payments = rows.map(r => ({
+    trip_id:        str(r['Trip ID']       || r['trip_id']       || null),
+    load_id:        str(r['Load ID']       || r['load_id']       || null),
+    item_type:      str(r['Item Type']     || r['item_type']     || ''),
+    base_rate:      num(r['Base Rate']     || r['base_rate']     || 0),
+    fuel_surcharge: num(r['Fuel Surcharge']|| r['fuel_surcharge']|| 0),
+    tolls:          num(r['Tolls']         || r['tolls']         || 0),
+    detention:      num(r['Detention']     || r['detention']     || 0),
+    tonu:           num(r['TONU']          || r['tonu']          || 0),
+    gross_pay:      num(r['Gross Pay']     || r['gross_pay']     || 0),
+  })).filter(r => r.gross_pay !== 0);
+  const invId = rows[0] ? str(rows[0]['Invoice Number'] || rows[0]['invoice_number'] || '') : '';
+  return { invoice_id: invId, rows: payments, total: payments.reduce((a,r)=>a+r.gross_pay,0) };
+}
+
+function parseEZPass(rows) {
+  // Group tolls by TAG ID (normalised to digits only)
+  // Amount format: ($4.75) = positive charge; $4.75 = credit (rare)
+  const map = {};
+  const pFrom = document.getElementById('period-from').value;
+  const pTo   = document.getElementById('period-to').value;
+  rows.forEach(r => {
+    const tagRaw = str(r['TAG ID'] || r['Tag ID'] || r['tag_id'] || '');
+    const tag    = tagRaw.replace(/\D/g,''); // digits only
+    if (!tag) return;
+
+    const dateRaw = str(r['Posting Date'] || r['Exit Date'] || r['posting_date'] || '');
+    const date    = normalizeDate(dateRaw);
+    if (pFrom && pTo && date && (date < pFrom || date > pTo)) return; // filter by period
+
+    const amtRaw = str(r['Amount'] || r['amount'] || '0');
+    let amt = 0;
+    if (amtRaw.startsWith('(') && amtRaw.endsWith(')')) {
+      amt = parseFloat(amtRaw.replace(/[()$,]/g,'')) || 0;
+    } else {
+      amt = parseFloat(amtRaw.replace(/[$,]/g,'')) || 0;
+    }
+    map[tag] = (map[tag] || 0) + amt;
+  });
+  return map;
+}
+
+function parseFuel(rows) {
+  // Group fuel by Card # (raw string match)
+  const map = {};
+  const pFrom = document.getElementById('period-from').value;
+  const pTo   = document.getElementById('period-to').value;
+  rows.forEach(r => {
+    const card = str(r['Card #'] || r['card_num'] || r['CardNum'] || '');
+    if (!card) return;
+
+    const dateRaw = str(r['Tran Date'] || r['tran_date'] || r['Date'] || '');
+    const date    = normalizeDate(dateRaw);
+    if (pFrom && pTo && date && (date < pFrom || date > pTo)) return;
+
+    const amt = num(r['Amt'] || r['Amount'] || r['amt'] || 0);
+    map[card] = (map[card] || 0) + amt;
+  });
+  return map;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STEP 1 → STEP 2: PROCESS & MATCH
+// ══════════════════════════════════════════════════════════════════════
+function processStep1() {
+  if (!S.trips || !S.invoice) { toast('Upload required files first'); return; }
+  try {
+
+  const inv      = S.invoice;
+  const tourRows = inv.rows.filter(r => (r.item_type||'').toUpperCase().includes('TOUR'));
+  const loadRows = inv.rows.filter(r => !(r.item_type||'').toUpperCase().includes('TOUR'));
+
+  // Build lookup indexes
+  const tourByTrip = {};
+  tourRows.forEach(r => { if(r.trip_id) tourByTrip[r.trip_id] = r; });
+  const invByLoad = {};
+  loadRows.forEach(r => { if(r.load_id) invByLoad[r.load_id] = r; });
+
+  // Group loads by truck
+  const byTruck = {};
+  S.trips.forEach(t => {
+    const key = t.truck || 'UNKNOWN';
+    if (!byTruck[key]) byTruck[key] = { truck: key, driver: t.driver, loads: [] };
+    byTruck[key].loads.push(t);
+  });
+
+  // Build assigns: enrich with Supabase data
+  S.assigns = Object.values(byTruck).map(g => {
+    const truckObj  = S.trucks.find(t => t.unit === g.truck) || null;
+    const driverObj = S.drivers.find(d =>
+      d.truck === g.truck ||
+      (d.first + ' ' + d.last).toLowerCase() === g.driver.toLowerCase()
+    ) || null;
+
+    const displayLoads = buildDisplayLoads(g.loads, tourByTrip, invByLoad);
+    const gross = displayLoads.reduce((a,l) => a + l.gross, 0);
+
+    return {
+      truck:      g.truck,
+      truckObj,
+      driverObj,
+      driverName: driverObj ? driverObj.first + ' ' + driverObj.last : g.driver,
+      loads:      displayLoads,
+      gross,
+      miles:      displayLoads.reduce((a,l) => a + l.miles, 0),
+    };
+  });
+
+  } catch(e) { console.error('processStep1 error:', e); toast('Error: ' + e.message); return; }
+  generateSettlements();
+}
+
+function buildDisplayLoads(trips, tourByTrip, invByLoad) {
+  const grouped   = {};
+  const standalone = [];
+
+  trips.forEach(t => {
+    if (t.trip_id) {
+      if (!grouped[t.trip_id]) grouped[t.trip_id] = [];
+      grouped[t.trip_id].push(t);
+    } else {
+      standalone.push(t);
+    }
+  });
+
+  const result = [];
+
+  // Tours
+  Object.entries(grouped).forEach(([tripId, legs]) => {
+    const tour    = tourByTrip[tripId];
+    const tourBase = tour ? tour.gross_pay : 0;
+    const legPays  = legs.map(l => invByLoad[l.load_id] || null);
+    const additions = legPays.reduce((a,p) => a + (p ? p.gross_pay : 0), 0);
+    result.push({
+      type: 'tour',
+      id:   tripId,
+      origin:      legs[0].origin,
+      destination: legs[legs.length-1].destination,
+      stops: [...legs.map(l=>l.origin), legs[legs.length-1].destination],
+      miles:      legs.reduce((a,l)=>a+l.miles,0),
+      tour_base:  tourBase,
+      additions,
+      gross: tourBase + additions,
+      date:  legs[0].pickup_date,
+      end_date: legs[legs.length-1].delivery_date,
+      legs: legs.map((l,i)=>({...l, pay: legPays[i]})),
+    });
+  });
+
+  // Standalone loads
+  standalone.forEach(t => {
+    const pay   = invByLoad[t.load_id];
+    const gross = pay ? pay.gross_pay : 0;
+    result.push({
+      type: 'load',
+      id:   t.load_id,
+      origin:      t.origin,
+      destination: t.destination,
+      stops: [t.origin, t.destination],
+      miles: t.miles,
+      tour_base:  pay ? pay.base_rate : 0,
+      additions:  pay ? (pay.fuel_surcharge + pay.tolls + pay.detention + pay.tonu) : 0,
+      gross,
+      date:     t.pickup_date,
+      end_date: t.delivery_date,
+      item_type: pay ? pay.item_type : '',
+      legs: [{...t, pay}],
+    });
+  });
+
+  return result.sort((a,b) => a.date.localeCompare(b.date));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STEP 2: RENDER MATCH / ASSIGN TABLE
+// ══════════════════════════════════════════════════════════════════════
+function renderStep2() {
+  try {
+  const totalGross = S.assigns.reduce((a,x)=>a+x.gross, 0);
+  const totalLoads = S.assigns.reduce((a,x)=>a+x.loads.length, 0);
+  const totalMiles = S.assigns.reduce((a,x)=>a+x.miles, 0);
+
+  document.getElementById('match-summary').innerHTML = `
+    <div class="summary-bar" style="margin-bottom:16px">
+      <div><div class="sum-label">Invoice</div><div class="sum-val" style="font-size:12px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${S.invoice.invoice_id || '—'}</div></div>
+      <div class="sum-stat"><div class="sum-label">Trucks</div><div class="sum-val">${S.assigns.length}</div></div>
+      <div class="sum-stat"><div class="sum-label">Loads</div><div class="sum-val">${totalLoads}</div></div>
+      <div class="sum-stat"><div class="sum-label">Miles</div><div class="sum-val">${Math.round(totalMiles).toLocaleString()}</div></div>
+      <div class="sum-stat"><div class="sum-label">Total Gross</div><div class="sum-val g">$${fmt(totalGross)}</div></div>
+    </div>`;
+
+  // Build driver dropdown options
+  const driverOptions = S.drivers.map(d =>
+    `<option value="${d.id}">${d.first} ${d.last} (${d.type}${d.pay_rate ? ' · '+d.pay_rate+'%' : ''})</option>`
+  ).join('');
+
+  const rows = S.assigns.map((a, i) => {
+    const typeBadge = truckTypeBadge(a.truckObj ? a.truckObj.driver_type : '');
+    const driverSel = `<select class="inline-sel" id="drv-sel-${i}" onchange="updateAssignDriver(${i},this.value)">
+      <option value="">— not assigned —</option>
+      ${S.drivers.map(d => `<option value="${d.id}" ${a.driverObj && a.driverObj.id===d.id ? 'selected':''}>${d.first} ${d.last} (${d.type})</option>`).join('')}
+    </select>`;
+    return `<tr>
+      <td><span class="truck-pill">${a.truck}</span></td>
+      <td>${typeBadge}</td>
+      <td>${driverSel}</td>
+      <td style="text-align:center;font-size:12px;font-family:var(--mono)">${a.loads.length}</td>
+      <td style="text-align:right;font-size:12px;font-family:var(--mono)">${Math.round(a.miles).toLocaleString()} mi</td>
+      <td style="text-align:right"><span class="gross-mono">$${fmt(a.gross)}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('assign-table-wrap').innerHTML = `
+    <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
+      Review truck assignments. Drivers are auto-matched from Equipment cards. Adjust if needed.
+    </div>
+    <table class="assign-table">
+      <thead><tr>
+        <th>Truck</th><th>Type</th><th>Driver</th><th style="text-align:center">Loads</th><th style="text-align:right">Miles</th><th style="text-align:right">Gross</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  } catch(e) { console.error('renderStep2 error:', e); toast('Render error: ' + e.message); }
+}
+
+function updateAssignDriver(i, driverId) {
+  S.assigns[i].driverObj = S.drivers.find(d => d.id === driverId) || null;
+  S.assigns[i].driverName = S.assigns[i].driverObj
+    ? S.assigns[i].driverObj.first + ' ' + S.assigns[i].driverObj.last
+    : '—';
+}
+
+function truckTypeBadge(type) {
+  const t = type || '';
+  const map = {P:'P', POO:'POO', OO:'OO', CT:'CT', Driver:'Driver', partner:'P', owner_op:'OO', company:'CT'};
+  const label = map[t] || t || '—';
+  return `<span class="type-badge badge-${label}">${label}</span>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STEP 2 → STEP 3: GENERATE SETTLEMENTS
+// ══════════════════════════════════════════════════════════════════════
+function generateSettlements() {
+  renderStep3();
+  goToStep(3);
+}
+
+function calcSettlement(assign) {
+  const truck  = assign.truckObj;
+  const driver = assign.driverObj;
+  const gross  = assign.gross;
+
+  // Driver type (from driver record, fallback to truck)
+  const dType  = driver ? driver.type : (truck ? truck.driver_type : 'OO');
+  const payRate = driver ? (driver.pay_rate || 100) : 100;
+
+  // Deductions from truck's ded JSONB
+  const ded = (truck && truck.ded) ? (typeof truck.ded === 'string' ? JSON.parse(truck.ded) : truck.ded) : {};
+
+  // EZ Pass: match normalised TAG ID
+  let ezpassAmt = 0;
+  if (S.ezpass && ded.ezpass && ded.ezpass.on && ded.ezpass.id) {
+    const tagNorm = String(ded.ezpass.id).replace(/\D/g,'');
+    ezpassAmt = S.ezpass[tagNorm] || 0;
+  }
+
+  // Fuel: match Card #
+  let fuelAmt = 0;
+  if (S.fuel && ded.fuel && ded.fuel.on && ded.fuel.id) {
+    const cardId = String(ded.fuel.id);
+    fuelAmt = S.fuel[cardId] || 0;
+  }
+
+  // PrePass: $7/wk if enabled
+  const prepassAmt = (ded.prepass && ded.prepass.on) ? 7 : 0;
+
+  // Tablet
+  const tabletAmt = (ded.tablet && ded.tablet.on) ? (ded.tablet.amt || 0) : 0;
+
+  // Truck payment (fixed, only if on)
+  const truckPayment = (truck && truck.truck_payment && truck.truck_payment.on) ? (truck.truck_payment.amount || 0) : 0;
+
+  // Fixed weekly deductions — only if on:true
+  const insuranceAmt    = (ded.insurance   && ded.insurance.on)   ? (ded.insurance.amt   || 0) : 0;
+  const physdmgAmt      = (ded.physdmg     && ded.physdmg.on)     ? (ded.physdmg.amt     || 0) : 0;
+  const iftaAmt         = (ded.ifta        && ded.ifta.on)        ? (ded.ifta.amt        || 0) : 0;
+  const adminAmt        = (ded.admin       && ded.admin.on)       ? (ded.admin.amt       || 0) : 0;
+  const trailerrentAmt  = (ded.trailerrent && ded.trailerrent.on) ? (ded.trailerrent.amt || 0) : 0;
+  const samsaraAmt      = (ded.samsara     && ded.samsara.on)     ? (ded.samsara.amt     || 0) : 0;
+
+  // Dispatch fee from truck card
+  const dispatchPct = (ded.dispatch && ded.dispatch.on) ? (ded.dispatch.pct || 0) : 0;
+  const dispatchAmt = gross * (dispatchPct / 100);
+
+  // Company cut (OO gets less than 100%)
+  const companyCutPct = (dType === 'OO') ? (100 - payRate) : 0;
+  const companyCutAmt = gross * (companyCutPct / 100);
+
+  // CT: driver gets a % of gross
+  const ctDriverPct = (dType === 'CT' || dType === 'Driver') ? payRate : 0;
+  const ctDriverAmt = gross * (ctDriverPct / 100);
+
+  const totalDeductions = companyCutAmt + dispatchAmt + ezpassAmt + fuelAmt + prepassAmt
+    + tabletAmt + truckPayment + insuranceAmt + physdmgAmt + iftaAmt
+    + adminAmt + trailerrentAmt + samsaraAmt + ctDriverAmt;
+  const net = gross - totalDeductions;
+
+  return {
+    dType, payRate,
+    dispatchPct, dispatchAmt, companyCutPct, companyCutAmt,
+    ezpassAmt, fuelAmt, prepassAmt, tabletAmt, truckPayment,
+    insuranceAmt, physdmgAmt, iftaAmt, adminAmt, trailerrentAmt, samsaraAmt,
+    ctDriverPct, ctDriverAmt,
+    totalDeductions, net,
+  };
+}
+
+function renderStep3() {
+  const pFrom = document.getElementById('period-from').value;
+  const pTo   = document.getElementById('period-to').value;
+  const period = fmtDate(pFrom) + ' — ' + fmtDate(pTo);
+
+  const totalGross = S.assigns.reduce((a,x)=>a+x.gross, 0);
+
+  document.getElementById('summary-bar-wrap').innerHTML = `
+    <div class="summary-bar">
+      <div class="sum-stat"><div class="sum-label">Period</div><div class="sum-val" style="font-size:13px">${period}</div></div>
+      <div class="sum-stat"><div class="sum-label">Statements</div><div class="sum-val">${S.assigns.length}</div></div>
+      <div class="sum-stat"><div class="sum-label">Total Gross</div><div class="sum-val g">$${fmt(totalGross)}</div></div>
+      <div class="sum-stat"><div class="sum-label">Invoice</div><div class="sum-val" style="font-size:11px;opacity:.6">${(S.invoice.invoice_id||'').substring(0,16)}…</div></div>
+    </div>`;
+
+  const cardsHtml = S.assigns.map((a, i) => buildSettleCard(a, i, period)).join('');
+  document.getElementById('settle-cards').innerHTML = cardsHtml;
+}
+
+function buildSettleCard(a, i, period) {
+  const s = calcSettlement(a);
+  const driver = a.driverObj;
+  const dTypeLabel = { P:'Partner', POO:'Partner OO', OO:'Owner-Op', CT:'Company Truck', Driver:'Driver' }[s.dType] || s.dType;
+  const badgeCls   = { P:'badge-P', POO:'badge-POO', OO:'badge-OO', CT:'badge-CT', Driver:'badge-Driver' }[s.dType] || 'badge-Driver';
+  const driverName = a.driverName || '—';
+
+  // Build loads rows
+  const loadsRows = a.loads.map(l => `
+    <tr>
+      <td>
+        <span style="font-family:var(--mono);font-size:11px">${l.id}</span>
+        ${l.type==='tour' ? `<span class="tour-badge">Tour×${l.legs.length}</span>` : ''}
+      </td>
+      <td style="font-size:11px;color:var(--text3)">${l.date || ''}</td>
+      <td style="font-size:12px"><strong>${fc(l.origin)}</strong> → <strong>${fc(l.destination)}</strong></td>
+      <td class="r" style="font-family:var(--mono)">${Math.round(l.miles)}</td>
+      <td class="r" style="font-family:var(--mono);color:var(--green);font-weight:600">$${fmt(l.gross)}</td>
+    </tr>`).join('');
+
+  // Build deduction rows
+  const DR = (label, amt, isRed=true, indent=false) => amt === 0 ? '' :
+    `<div class="ded-row">
+       <span class="ded-label${indent?' indent':''}">${label}</span>
+       <span class="ded-dots"></span>
+       <span class="ded-val ${isRed?'red':'grn'}">${isRed?'−':'+'} $${fmt(Math.abs(amt))}</span>
+     </div>`;
+
+  const adjSectionId = `adj-section-${i}`;
+  const adjInputId   = `adj-input-${i}`;
+
+  return `
+  <div class="settle-card fu" id="sc-${i}">
+    <div class="settle-card-head" onclick="toggleCard(${i})" style="cursor:pointer">
+      <div>
+        <div class="sc-driver">
+          ${driverName}
+          <span class="type-badge ${badgeCls}" style="margin-left:8px;font-size:11px">${dTypeLabel}</span>
+        </div>
+        <div class="sc-meta">Truck ${a.truck} · ${a.loads.length} loads · ${Math.round(a.miles).toLocaleString()} mi · ${period}</div>
+      </div>
+      <div class="sc-right">
+        <div>
+          <div class="sc-net-label">${s.dType==='CT'?'Net to Co':'Net to Driver'}</div>
+          <div class="sc-net-val ${s.dType==='OO'?'oo':''}">$${fmt(s.net)}</div>
+        </div>
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text3);flex-shrink:0;transition:transform .2s" id="sc-chevron-${i}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </div>
+    </div>
+    <div class="settle-card-body" id="scb-${i}">
+      <div class="sc-body-inner">
+        <!-- LOADS -->
+        <div class="sc-loads">
+          <div class="sc-section-title">Loads</div>
+          <table class="loads-tbl">
+            <thead><tr><th>ID / Trip</th><th>Date</th><th>Route</th><th class="r">Mi</th><th class="r">Gross</th></tr></thead>
+            <tbody>
+              ${loadsRows}
+              <tr class="total-row">
+                <td colspan="3">Total</td>
+                <td class="r" style="font-family:var(--mono)">${Math.round(a.miles).toLocaleString()}</td>
+                <td class="r" style="font-family:var(--mono)">$${fmt(a.gross)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- CALC -->
+        <div class="sc-calc">
+          <div class="sc-section-title">Settlement</div>
+          <div class="ded-row gross-row">
+            <span class="ded-label">Gross Revenue</span>
+            <span class="ded-dots"></span>
+            <span class="ded-val">$${fmt(a.gross)}</span>
+          </div>
+          ${s.companyCutAmt > 0 ? DR(`Company Cut (${s.companyCutPct}%)`, s.companyCutAmt) : ''}
+          ${s.dispatchAmt > 0 ? DR(`Dispatch Fee (${s.dispatchPct}%)`, s.dispatchAmt) : ''}
+          ${s.insuranceAmt > 0 ? DR('Insurance', s.insuranceAmt) : ''}
+          ${s.physdmgAmt > 0 ? DR('Physical Damage', s.physdmgAmt) : ''}
+          ${s.ezpassAmt > 0 ? DR('EZ Pass Tolls', s.ezpassAmt) : ''}
+          ${s.fuelAmt > 0 ? DR('Fuel Card', s.fuelAmt) : ''}
+          ${s.prepassAmt > 0 ? DR('PrePass', s.prepassAmt) : ''}
+          ${s.tabletAmt > 0 ? DR('Tablet / Device', s.tabletAmt) : ''}
+          ${s.iftaAmt > 0 ? DR('IFTA', s.iftaAmt) : ''}
+          ${s.adminAmt > 0 ? DR('Admin Fee', s.adminAmt) : ''}
+          ${s.trailerrentAmt > 0 ? DR('Trailer Rent', s.trailerrentAmt) : ''}
+          ${s.samsaraAmt > 0 ? DR('Samsara', s.samsaraAmt) : ''}
+          ${s.truckPayment > 0 ? DR('Truck Payment', s.truckPayment) : ''}
+          ${s.ctDriverAmt > 0 ? DR(`Driver Pay (${s.ctDriverPct}%)`, s.ctDriverAmt) : ''}
+
+          <!-- ADJUSTMENTS -->
+          <div class="adj-section" id="${adjSectionId}"></div>
+          <div style="margin-top:6px">
+            <button class="btn btn-outline btn-sm" onclick="addAdjustment(${i})">+ Adjustment</button>
+          </div>
+
+          <div class="ded-row net-row" id="net-row-${i}">
+            <span class="ded-label">${s.dType==='CT'?'NET TO COMPANY':'NET TO DRIVER'}</span>
+            <span class="ded-dots"></span>
+            <span class="ded-val bold grn">$${fmt(s.net)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="settle-card-foot">
+      <button class="btn btn-outline btn-sm" onclick="printSettlement(${i})">
+        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        Print
+      </button>
+    </div>
+  </div>`;
+}
+
+function toggleCard(i) {
+  const body = document.getElementById('scb-'+i);
+  const chev = document.getElementById('sc-chevron-'+i);
+  const isOpen = body.classList.toggle('open');
+  if (chev) chev.style.transform = isOpen ? 'rotate(180deg)' : '';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ADJUSTMENTS
+// ══════════════════════════════════════════════════════════════════════
+const adjState = {}; // i -> [{label,amt}]
+
+function addAdjustment(i) {
+  if (!adjState[i]) adjState[i] = [];
+  const id = adjState[i].length;
+  adjState[i].push({label:'', amt:0});
+
+  const sec = document.getElementById(`adj-section-${i}`);
+  const row = document.createElement('div');
+  row.className = 'adj-row';
+  row.id = `adj-row-${i}-${id}`;
+  row.innerHTML = `
+    <input class="adj-input" placeholder="Label" style="flex:2" oninput="adjState[${i}][${id}].label=this.value">
+    <input class="adj-input" type="number" placeholder="±0.00" style="flex:1" oninput="adjState[${i}][${id}].amt=parseFloat(this.value)||0;recalcNet(${i})">
+    <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="removeAdj(${i},${id})">✕</button>`;
+  sec.appendChild(row);
+}
+
+function removeAdj(i, id) {
+  adjState[i][id] = null;
+  const row = document.getElementById(`adj-row-${i}-${id}`);
+  if (row) row.remove();
+  recalcNet(i);
+}
+
+function recalcNet(i) {
+  const a   = S.assigns[i];
+  const s   = calcSettlement(a);
+  const adjs = (adjState[i] || []).filter(Boolean).reduce((sum, x) => sum + (x.amt||0), 0);
+  const net  = s.net + adjs;
+  const el   = document.getElementById(`net-row-${i}`);
+  if (el) {
+    const span = el.querySelector('.ded-val');
+    if (span) span.textContent = '$' + fmt(net);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// PRINT
+// ══════════════════════════════════════════════════════════════════════
+function printSettlement(i) {
+  const a      = S.assigns[i];
+  const s      = calcSettlement(a);
+  const adjs   = (adjState[i] || []).filter(Boolean);
+  const adjTotal = adjs.reduce((sum,x) => sum+(x.amt||0), 0);
+  const net    = s.net + adjTotal;
+  const period = document.getElementById('period-from').value + ' — ' + document.getElementById('period-to').value;
+  const pFrom  = document.getElementById('period-from').value;
+  const pTo    = document.getElementById('period-to').value;
+  const periodLabel = fmtDate(pFrom) + ' — ' + fmtDate(pTo);
+  const driverName  = a.driverName || '—';
+  const truck  = a.truckObj;
+  const driver = a.driverObj;
+  const dType  = s.dType;
+  const dTypeLabel = {P:'Partner',POO:'Partner OO',OO:'Owner-Op',CT:'Company Truck',Driver:'Driver'}[dType] || dType;
+
+  const DR = (label, amt, sign='-') => amt === 0 ? '' :
+    `<tr><td class="dl">${label}</td><td class="dv" style="color:${sign==='-'?'#DC2626':'#059669'}">${sign === '-' ? '−' : '+'} $${fmt(Math.abs(amt))}</td></tr>`;
+
+  const adjRows = adjs.map(x =>
+    `<tr><td class="dl">${x.label||'Adjustment'}</td><td class="dv" style="color:${x.amt>=0?'#059669':'#DC2626'}">${x.amt>=0?'+':'-'} $${fmt(Math.abs(x.amt))}</td></tr>`
+  ).join('');
+
+  const loadsRows = a.loads.map(l =>
+    `<tr>
+      <td style="font-family:monospace;font-size:11px">${l.id}${l.type==='tour'?' (Tour×'+l.legs.length+')':''}</td>
+      <td style="font-size:11px;color:#888">${l.date||''}</td>
+      <td style="font-size:12px">${fc(l.origin)} → ${fc(l.destination)}</td>
+      <td style="text-align:right;font-family:monospace">${Math.round(l.miles)}</td>
+      <td style="text-align:right;font-family:monospace;color:#059669;font-weight:600">$${fmt(l.gross)}</td>
+    </tr>`
+  ).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:32px;color:#0D1829;font-size:13px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #0D1829;margin-bottom:20px}
+    .co-name{font-size:22px;font-weight:800;color:#0D1829}
+    .co-info{font-size:11px;color:#888;margin-top:5px;line-height:1.7}
+    .doc-label{font-size:28px;font-weight:800;color:#0D1829;text-align:right}
+    .doc-sub{font-size:12px;color:#888;text-align:right;margin-top:4px}
+    .driver-block{background:#F4F6FA;border-radius:8px;padding:12px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+    .driver-name{font-size:16px;font-weight:700}
+    .driver-meta{font-size:11px;color:#888;margin-top:3px}
+    .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#E0E7FF;color:#3730A3}
+    .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #E2E8F0}
+    table{width:100%;border-collapse:collapse}
+    .loads-tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#888;padding:5px 8px;background:#F8F9FA;border-bottom:1px solid #E2E8F0}
+    .loads-tbl td{padding:7px 8px;border-bottom:1px solid #E2E8F0}
+    .loads-tbl tr:last-child td{background:#F4F6FA;font-weight:700}
+    .ded-tbl{width:100%;margin-bottom:4px}
+    .ded-tbl td{padding:5px 0;font-size:13px}
+    .dl{color:#4A5568}.dv{font-family:monospace;text-align:right;font-weight:600}
+    .gross-row td{font-weight:700;font-size:14px;padding-bottom:10px}
+    .net-row{margin-top:12px;padding:12px 0;border-top:3px solid #0D1829;display:flex;justify-content:space-between;align-items:center}
+    .net-label{font-size:16px;font-weight:800}
+    .net-val{font-family:monospace;font-size:26px;font-weight:800;color:#059669}
+    .footer{margin-top:28px;padding-top:12px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;font-size:10px;color:#aaa}
+  </style></head>
+  <body>
+    <div class="header">
+      <div>
+        <div class="co-name">ZTA Transportation LLC</div>
+        <div class="co-info">2100 Grant Ave, Apt 10 · Philadelphia, PA 19115<br>272-372-0000 · info@ztatrans.com</div>
+      </div>
+      <div>
+        <div class="doc-label">SETTLEMENT</div>
+        <div class="doc-sub">${periodLabel}</div>
+      </div>
+    </div>
+
+    <div class="driver-block">
+      <div>
+        <div class="driver-name">${driverName}</div>
+        <div class="driver-meta">Truck ${a.truck}${driver&&driver.company?' · '+driver.company:''}</div>
+      </div>
+      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <span class="badge">${dTypeLabel}${s.payRate&&s.payRate!==100?' · '+s.payRate+'%':''}</span>
+        <span style="font-size:11px;color:#888">Invoice: ${S.invoice.invoice_id||'—'}</span>
+      </div>
+    </div>
+
+    <div class="sec-title">Loads</div>
+    <table class="loads-tbl">
+      <thead><tr><th>ID / Trip</th><th>Date</th><th>Route</th><th style="text-align:right">Miles</th><th style="text-align:right">Gross</th></tr></thead>
+      <tbody>
+        ${loadsRows}
+        <tr><td colspan="3">Total</td><td style="text-align:right;font-family:monospace">${Math.round(a.miles).toLocaleString()}</td><td style="text-align:right;font-family:monospace">$${fmt(a.gross)}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sec-title">Deductions</div>
+    <table class="ded-tbl">
+      <tr class="gross-row"><td class="dl">Gross Revenue</td><td class="dv">$${fmt(a.gross)}</td></tr>
+      ${s.companyCutAmt > 0 ? DR(`Company Cut (${s.companyCutPct}%)`, s.companyCutAmt) : ''}
+      ${s.dispatchAmt > 0 ? DR(`Dispatch Fee (${s.dispatchPct}%)`, s.dispatchAmt) : ''}
+      ${s.insuranceAmt > 0 ? DR('Insurance', s.insuranceAmt) : ''}
+      ${s.physdmgAmt > 0 ? DR('Physical Damage', s.physdmgAmt) : ''}
+      ${s.ezpassAmt > 0 ? DR('EZ Pass Tolls', s.ezpassAmt) : ''}
+      ${s.fuelAmt > 0 ? DR('Fuel Card', s.fuelAmt) : ''}
+      ${s.prepassAmt > 0 ? DR('PrePass', s.prepassAmt) : ''}
+      ${s.tabletAmt > 0 ? DR('Tablet / Device', s.tabletAmt) : ''}
+      ${s.iftaAmt > 0 ? DR('IFTA', s.iftaAmt) : ''}
+      ${s.adminAmt > 0 ? DR('Admin Fee', s.adminAmt) : ''}
+      ${s.trailerrentAmt > 0 ? DR('Trailer Rent', s.trailerrentAmt) : ''}
+      ${s.samsaraAmt > 0 ? DR('Samsara', s.samsaraAmt) : ''}
+      ${s.truckPayment > 0 ? DR('Truck Payment', s.truckPayment) : ''}
+      ${s.ctDriverAmt > 0 ? DR(`Driver Pay (${s.ctDriverPct}%)`, s.ctDriverAmt) : ''}
+      ${adjRows}
+    </table>
+
+    <div class="net-row">
+      <span class="net-label">${dType==='CT'?'NET TO COMPANY':'NET TO DRIVER'}</span>
+      <span class="net-val">$${fmt(net)}</span>
+    </div>
+
+    <div class="footer">
+      <span>Generated by Nexus TMS · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span>
+      <span>ZTA Transportation LLC</span>
+    </div>
+  </body></html>`;
+
+  let iframe = document.getElementById('print-frame');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'print-frame';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:850px;height:1100px;border:none;visibility:hidden';
+    document.body.appendChild(iframe);
+  }
+  iframe.onload = () => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { toast('Print failed: '+e.message); } };
+  const d = iframe.contentDocument || iframe.contentWindow.document;
+  d.open(); d.write(html); d.close();
+}
+
+function printAllSettlements() {
+  S.assigns.forEach((_, i) => setTimeout(() => printSettlement(i), i * 600));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════════
+function goToStep(n) {
+  S.step = n;
+  // Map actual step (1,3) to visual steps (step1, step3)
+  ['step1','step3'].forEach((id, idx) => {
+    const visualStep = idx + 1; // 1 or 2
+    const actualStep = [1,3][idx];
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('active','done');
+    if (actualStep < n) el.classList.add('done');
+    else if (actualStep === n) el.classList.add('active');
+  });
+  document.getElementById('section-step1').style.display = n===1?'':'none';
+  document.getElementById('section-step3').style.display = n===3?'':'none';
+}
+
+function resetAll() {
+  S = { trucks: S.trucks, drivers: S.drivers, trips:null, invoice:null, ezpass:null, fuel:null, assigns:[], step:1 };
+  ['trips','invoice','ezpass','fuel'].forEach(type => {
+    const card = document.getElementById('card-'+type);
+    if (!card) return;
+    card.className = 'upload-card' + (type==='ezpass'||type==='fuel'?' optional':'');
+    document.getElementById('status-'+type).innerHTML =
+      `<span class="upload-card-badge ${type==='ezpass'||type==='fuel'?'opt':'waiting'}">${type==='ezpass'||type==='fuel'?'Optional':'⏳ Waiting'}</span>`;
+  });
+  document.getElementById('btn-process').disabled = true;
+  document.getElementById('step1-ready-msg').textContent = 'Upload Trips CSV + Invoice to continue';
+  document.getElementById('step1-ready-msg').style.color = 'var(--text3)';
+  goToStep(1);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FACILITY CODE MAP
+// ══════════════════════════════════════════════════════════════════════
+const FC = {
+  ABE8:'Breinigsville,PA', ACY1:'Robbinsville,NJ', BWI2:'Baltimore,MD',
+  CLT4:'Charlotte,NC', CLT6:'Charlotte,NC', DGI1:'Carteret,NJ',
+  EWR4:'Carteret,NJ', HGR2:'Hagerstown,MD', HGR6:'Hagerstown,MD',
+  MDT4:'Middletown,PA', PNE4:'Philadelphia,PA', QYY4:'Avenel,NJ',
+  RDU4:'Garner,NC', SVA2:'Savannah,GA', TEB3:'Teterboro,NJ',
+  XMD6:'Upper Marlboro,MD', JAX3:'Jacksonville,FL', GSO1:'Greensboro,NC',
+  RIC2:'Richmond,VA', DCA6:'Sterling,VA', ORF2:'Suffolk,VA',
+  ACY2:'Robbinsville,NJ', PHL7:'Philadelphia,PA', PHL4:'Philadelphia,PA',
+  SDF8:'Shepherdsville,KY', CMH2:'Etna,OH', BOS7:'North Reading,MA',
+};
+function fc(code) {
+  const c = (code||'').trim().toUpperCase();
+  return FC[c] ? `${c} <span style="font-weight:400;color:var(--text3)">(${FC[c]})</span>` : (c || '—');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════
+function fmt(n) {
+  const v = parseFloat(n) || 0;
+  return v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function num(v) { return parseFloat(String(v).replace(/[$,]/g,'')) || 0; }
+function str(v) { return v ? String(v).trim() : ''; }
+function fmtDate(s) {
+  if (!s) return '';
+  const d = new Date(s + 'T00:00:00');
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+}
+function normalizeDate(raw) {
+  if (!raw) return '';
+  // Try MM/DD/YYYY or MM/DD/YY
+  const m = String(raw).match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (m) {
+    const yr = m[3].length===2 ? '20'+m[3] : m[3];
+    return `${yr}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  }
+  // Already ISO
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.substring(0,10);
+  return '';
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast-el');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
