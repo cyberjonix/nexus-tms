@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus TMS -- Settlement v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;--border2:#C9D4E3;
+  --text:#0D1829;--text2:#4A5568;--text3:#8A9AB0;
+  --blue:#1A56DB;--blue-l:#EBF2FF;--blue-d:#1245B8;
+  --green:#059669;--green-l:#ECFDF5;
+  --orange:#D97706;--orange-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --navy:#0D1829;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(0,0,0,.09),0 2px 4px rgba(0,0,0,.05);
+  --sh-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+  --r:10px;--r-sm:6px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+/* SIDEBAR */
+.sidebar{width:216px;min-width:216px;background:var(--navy);height:100vh;position:sticky;top:0;display:flex;flex-direction:column}
+.logo-area{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-mark{font-family:var(--mono);font-size:17px;font-weight:500;color:#fff;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section{margin-bottom:18px}
+.nav-section-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.28);padding:0 8px 5px}
+.nav-item{text-decoration:none;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(26,86,219,.3);color:#fff}
+.nav-ic{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-ic{opacity:1}
+.db-indicator{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.35);padding:0 16px 8px}
+.db-dot{width:6px;height:6px;border-radius:50%;background:#CBD5E1;flex-shrink:0}
+.db-dot.connected{background:var(--green)}
+.db-dot.error{background:var(--red)}
+.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.35)}
+.sidebar-foot strong{color:rgba(255,255,255,.6);display:block;margin-top:2px;font-size:12px}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:var(--sh)}
+.topbar-title{font-size:15px;font-weight:700}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue-d)}
+.btn-primary:disabled{background:#93C5FD;cursor:not-allowed}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-outline:hover{background:var(--surface2)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#047857}
+.btn-danger{background:var(--red-l);color:var(--red);border:1px solid #FCA5A5}.btn-danger:hover{background:#FEE2E2}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px;border-radius:4px}
+
+/* CONTENT AREA */
+.content{flex:1;overflow-y:auto;padding:24px}
+
+/* STEP WIZARD */
+.wizard-steps{display:flex;align-items:center;gap:0;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:4px;box-shadow:var(--sh)}
+.wizard-step{display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;color:var(--text3);cursor:default;flex:1;justify-content:center;transition:all .2s}
+.wizard-step.active{background:var(--blue);color:#fff;box-shadow:var(--sh-md)}
+.wizard-step.done{color:var(--green);cursor:pointer}
+.wizard-step.done:hover{background:var(--green-l)}
+.step-num{width:20px;height:20px;border-radius:50%;background:currentColor;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:.4}
+.wizard-step.active .step-num{background:#fff;color:var(--blue);opacity:1}
+.wizard-step.done .step-num{background:var(--green);color:#fff;opacity:1}
+.step-divider{width:1px;height:24px;background:var(--border);flex-shrink:0}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:20px}
+.card-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-title-sm{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:10px}
+
+/* PERIOD SELECTOR */
+.period-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;box-shadow:var(--sh)}
+.period-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3)}
+.period-badge{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);background:var(--blue-l);border:1px solid #BFDBFE;border-radius:6px;padding:4px 12px}
+.period-inputs{display:flex;align-items:center;gap:8px}
+.period-input{padding:5px 10px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:var(--mono);font-size:12px;color:var(--text);background:var(--surface);outline:none}
+.period-input:focus{border-color:var(--blue)}
+
+/* UPLOAD ZONES */
+.upload-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);padding:20px;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--surface)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue);background:var(--blue-l)}
+.upload-zone.loaded{border-color:var(--green);border-style:solid;background:var(--green-l)}
+.upload-zone.optional{border-style:dashed;opacity:.85}
+.upload-icon{font-size:24px;margin-bottom:6px}
+.upload-label{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.upload-sub{font-size:11px;color:var(--text3)}
+.upload-status{font-size:11px;font-weight:600;color:var(--green);margin-top:4px}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+
+/* TABLES */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl thead th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl thead th:first-child{padding-left:14px}
+.tbl tbody tr{border-bottom:1px solid var(--border)}
+.tbl tbody tr:last-child{border-bottom:none}
+.tbl tbody tr:hover{background:#F8FAFF}
+.tbl td{padding:8px 10px;vertical-align:middle}
+.tbl td:first-child{padding-left:14px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
+.badge-blue{background:var(--blue-l);color:var(--blue)}
+.badge-green{background:var(--green-l);color:var(--green)}
+.badge-orange{background:var(--orange-l);color:var(--orange)}
+.badge-red{background:var(--red-l);color:var(--red)}
+.badge-gray{background:var(--surface2);color:var(--text3)}
+.badge-purple{background:var(--purple-l);color:var(--purple)}
+
+/* TYPE COLORS */
+.type-P{background:#FEF3C7;color:#92400E}
+.type-POO{background:#F5F3FF;color:#7C3AED}
+.type-OO{background:#EBF2FF;color:#1A56DB}
+.type-Driver{background:#ECFDF5;color:#059669}
+.type-CT{background:#FFF1F2;color:#9F1239}
+
+/* DRIVER MATCH TABLE */
+.match-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);transition:background .1s}
+.match-row:last-child{border-bottom:none}
+.match-row:hover{background:#F8FAFF}
+.truck-chip{font-family:var(--mono);font-size:11px;font-weight:700;background:var(--navy);color:#fff;padding:2px 8px;border-radius:4px}
+.driver-select{padding:5px 9px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:var(--sans);font-size:12px;color:var(--text);background:var(--surface);outline:none;min-width:180px}
+.driver-select:focus{border-color:var(--blue)}
+.match-gross{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green);min-width:90px;text-align:right}
+.match-loads{font-size:11px;color:var(--text3)}
+
+/* SETTLEMENT CARDS */
+.settlement-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px}
+.stmt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+.stmt-header{padding:14px 18px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:space-between}
+.stmt-header.ct-truck{background:#1a0a0a}
+.stmt-header.ct-driver{background:#2d1b1b}
+.stmt-title{font-size:14px;font-weight:700}
+.stmt-subtitle{font-size:11px;opacity:.6;margin-top:1px}
+.stmt-type-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.15)}
+.stmt-body{padding:16px 18px}
+.stmt-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.stmt-row:last-child{border-bottom:none}
+.stmt-row-label{color:var(--text2);font-size:12px}
+.stmt-row-label.sub{padding-left:14px;color:var(--text3);font-size:11px}
+.stmt-row-val{font-family:var(--mono);font-weight:600;font-size:12px}
+.stmt-row-val.neg{color:var(--red)}
+.stmt-row-val.pos{color:var(--green)}
+.stmt-row-val.gross{color:var(--text);font-size:14px;font-weight:700}
+.stmt-divider{height:1px;background:var(--border);margin:8px 0}
+.stmt-net{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;background:var(--surface2);border-top:2px solid var(--border)}
+.stmt-net-label{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
+.stmt-net-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--green)}
+.stmt-net-val.negative{color:var(--red)}
+.stmt-footer{padding:10px 18px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--surface)}
+
+/* ADJ ROW */
+.adj-row{display:flex;align-items:center;gap:6px;margin-top:6px}
+.adj-input{padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:var(--mono);font-size:12px;width:90px;outline:none}
+.adj-input:focus{border-color:var(--blue)}
+.adj-desc{padding:4px 8px;border:1px solid var(--border2);border-radius:var(--r-sm);font-family:var(--sans);font-size:12px;flex:1;outline:none}
+.adj-desc:focus{border-color:var(--blue)}
+.adj-sign{font-family:var(--mono);font-weight:700;font-size:14px;padding:0 2px}
+.adj-sign.pos{color:var(--green)}
+.adj-sign.neg{color:var(--red)}
+
+/* LOADS PREVIEW */
+.loads-preview{max-height:240px;overflow-y:auto}
+
+/* SUMMARY BAR */
+.summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.sum-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh)}
+.sum-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px}
+.sum-val{font-size:22px;font-weight:700;font-family:var(--mono);color:var(--text)}
+.sum-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:var(--sh-lg);z-index:2000;transform:translateY(16px);opacity:0;transition:all .25s;pointer-events:none;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{background:var(--red)}
+
+/* LOADING BAR */
+.loading-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--blue);z-index:9999;transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.loading-bar.active{animation:loadpulse 1.2s ease-in-out infinite}
+@keyframes loadpulse{0%{transform:scaleX(0)}50%{transform:scaleX(.7)}100%{transform:scaleX(1)}}
+
+/* MISC */
+.mono{font-family:var(--mono);font-size:12px}
+.text-green{color:var(--green)}
+.text-red{color:var(--red)}
+.text-orange{color:var(--orange)}
+.muted{color:var(--text3)}
+.sep{height:1px;background:var(--border);margin:16px 0}
+.info-box{background:var(--blue-l);border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blue-d);margin-bottom:16px}
+.warn-box{background:var(--orange-l);border:1px solid #FDE68A;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--orange);margin-bottom:12px}
+
+/* PRINT */
+@media print{
+  .sidebar,.topbar,.wizard-steps,.period-bar,.no-print{display:none!important}
+  .content{padding:0}
+  .stmt-card{break-inside:avoid;page-break-inside:avoid;border:1px solid #ddd;margin-bottom:20px}
+  body{background:#fff}
+  .main{height:auto;overflow:visible}
+}
+</style>
+
+<style id="auth-style">
+#auth-wall{position:fixed;inset:0;background:#0D1829;z-index:9999;display:flex;align-items:center;justify-content:center}
+.auth-box{width:320px;text-align:center}
+.auth-logo{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:#fff;letter-spacing:-.3px;margin-bottom:4px}
+.auth-sub{font-size:12px;color:rgba(255,255,255,.3);margin-bottom:32px}
+.auth-input{width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:15px;color:#fff;outline:none;text-align:center;letter-spacing:2px;margin-bottom:12px;box-sizing:border-box;transition:border .2s}
+.auth-input:focus{border-color:rgba(26,86,219,.7);background:rgba(26,86,219,.08)}
+.auth-input.shake{animation:shake .3s ease}
+.auth-btn{width:100%;padding:11px;background:#1A56DB;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:#fff;cursor:pointer;transition:background .15s}
+.auth-btn:hover{background:#1245B8}
+.auth-err{font-size:12px;color:#F87171;margin-top:10px;height:16px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+</head>
+<body>
+
+<div id="auth-wall">
+  <div class="auth-box">
+    <div class="auth-logo">NEXUS TMS</div>
+    <div class="auth-sub">ZTA Transportation LLC</div>
+    <input class="auth-input" id="auth-input" type="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')authSubmit()">
+    <button class="auth-btn" onclick="authSubmit()">Sign In</button>
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+<script>
+(function(){
+  const PASS = 'zta2026';
+  const KEY = 'nexus_auth';
+  if(sessionStorage.getItem(KEY) === '1'){
+    document.getElementById('auth-wall').style.display='none';
+    return;
+  }
+  document.body.style.overflow='hidden';
+  window.authSubmit = function(){
+    const val = document.getElementById('auth-input').value;
+    if(val === PASS){
+      sessionStorage.setItem(KEY,'1');
+      document.getElementById('auth-wall').style.display='none';
+      document.body.style.overflow='';
+    } else {
+      const inp = document.getElementById('auth-input');
+      inp.classList.remove('shake');
+      void inp.offsetWidth;
+      inp.classList.add('shake');
+      document.getElementById('auth-err').textContent='Incorrect password';
+      inp.value='';
+    }
+  };
+  setTimeout(()=>document.getElementById('auth-input').focus(), 100);
+})();
+</script>
+
+<div class="loading-bar" id="loading-bar"></div>
+
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">NEXUS TMS</div>
+    <div class="logo-sub">ZTA Transportation LLC</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-item active" href="nexus-tms-settlement-2.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12V5l6-3 6 3v7"/><rect x="5" y="8" width="6" height="4"/></svg>Settlements
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Management</div>
+      <a class="nav-item" href="nexus-tms-equipment-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
+      </a>
+      <a class="nav-item" href="nexus-tms-drivers-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
+      </a>
+    </div>
+  </nav>
+  <div class="db-indicator">
+    <div class="db-dot" id="db-dot"></div>
+    <span id="db-status">Connecting...</span>
+  </div>
+  <div class="sidebar-foot">Nexus TMS<strong>v2.0 - Settlement</strong></div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Settlement Generator</div>
+    <div class="topbar-actions" id="topbar-actions">
+      <button class="btn btn-outline btn-sm" onclick="resetAll()">Reset</button>
+    </div>
+  </div>
+
+  <div class="content" id="content">
+
+    <!-- WIZARD STEPS -->
+    <div class="wizard-steps">
+      <div class="wizard-step active" id="step-1-tab" onclick="goStep(1)">
+        <span class="step-num">1</span> Loads &amp; Drivers
+      </div>
+      <div class="step-divider"></div>
+      <div class="wizard-step" id="step-2-tab" onclick="goStep(2)">
+        <span class="step-num">2</span> Settlements
+      </div>
+    </div>
+
+    <!-- STEP 1: UPLOAD + MATCH -->
+    <div id="step-1">
+      <!-- PERIOD -->
+      <div class="period-bar">
+        <div>
+          <div class="period-label">Settlement Period</div>
+          <div class="period-badge" id="period-display">Loading...</div>
+        </div>
+        <div class="period-inputs">
+          <label style="font-size:11px;color:var(--text3)">From</label>
+          <input type="date" class="period-input" id="period-from" onchange="onPeriodChange()">
+          <label style="font-size:11px;color:var(--text3)">To</label>
+          <input type="date" class="period-input" id="period-to" onchange="onPeriodChange()">
+        </div>
+        <span style="font-size:11px;color:var(--text3);font-style:italic">Sat–Fri week · all files filtered to this range</span>
+      </div>
+
+      <!-- UPLOAD ZONES -->
+      <div class="upload-grid">
+        <div class="upload-zone" id="zone-trips" ondragover="onDrag(event,'trips')" ondragleave="offDrag('trips')" ondrop="onDrop(event,'trips')">
+          <input type="file" accept=".csv" onchange="onFile(event,'trips')">
+          <div class="upload-icon">📋</div>
+          <div class="upload-label">Trips CSV</div>
+          <div class="upload-sub">Load data from TMS export</div>
+          <div class="upload-status" id="status-trips"></div>
+        </div>
+        <div class="upload-zone" id="zone-invoice" ondragover="onDrag(event,'invoice')" ondragleave="offDrag('invoice')" ondrop="onDrop(event,'invoice')">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="onFile(event,'invoice')">
+          <div class="upload-icon">📄</div>
+          <div class="upload-label">Invoice XLSX</div>
+          <div class="upload-sub">Invoice details (optional)</div>
+          <div class="upload-status" id="status-invoice"></div>
+        </div>
+        <div class="upload-zone optional" id="zone-ezpass" ondragover="onDrag(event,'ezpass')" ondragleave="offDrag('ezpass')" ondrop="onDrop(event,'ezpass')">
+          <input type="file" accept=".csv" onchange="onFile(event,'ezpass')">
+          <div class="upload-icon">🛣️</div>
+          <div class="upload-label">EZPass CSV</div>
+          <div class="upload-sub">Toll transactions (optional)</div>
+          <div class="upload-status" id="status-ezpass"></div>
+        </div>
+        <div class="upload-zone optional" id="zone-fuel" ondragover="onDrag(event,'fuel')" ondragleave="offDrag('fuel')" ondrop="onDrop(event,'fuel')">
+          <input type="file" accept=".csv" onchange="onFile(event,'fuel')">
+          <div class="upload-icon">⛽</div>
+          <div class="upload-label">Fuel Card CSV</div>
+          <div class="upload-sub">Fuel transactions (optional)</div>
+          <div class="upload-status" id="status-fuel"></div>
+        </div>
+      </div>
+
+      <!-- STREET LOADS MANUAL ENTRY -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-title">
+          🚛 Street Loads
+          <span class="badge badge-gray" id="street-count-badge">0 loads</span>
+          <button class="btn btn-outline btn-xs" onclick="addStreetLoad()" style="margin-left:auto">+ Add Load</button>
+        </div>
+        <div id="street-loads-list">
+          <div style="font-size:12px;color:var(--text3);padding:8px 0">No street loads added. Click "+ Add Load" to enter manually.</div>
+        </div>
+      </div>
+
+      <!-- TRUCKS / DRIVER ASSIGNMENT (shown after loads loaded) -->
+      <div id="truck-assign-wrap" style="display:none">
+        <div class="card">
+          <div class="card-title">
+            Trucks &amp; Drivers
+            <span class="badge badge-blue" id="truck-assign-count"></span>
+          </div>
+          <div id="truck-assign-list"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-primary" id="btn-next-1" onclick="generateSettlements()" disabled>
+          Generate Settlements &rarr;
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2: SETTLEMENTS -->
+    <div id="step-2" style="display:none">
+      <div class="summary-bar" id="summary-bar"></div>
+      <div class="settlement-grid" id="settlement-grid"></div>
+      <div style="display:flex;justify-content:space-between;margin-top:16px" class="no-print">
+        <button class="btn btn-outline" onclick="goStep(1)">&larr; Back</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="window.print()">Print / PDF</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+const ORG_ID = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+const API = SUPABASE_URL + '/rest/v1';
+const HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY
+};
+
+async function dbSelect(table, params) {
+  const r = await fetch(API + '/' + table + '?' + params, { headers: HEADERS });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  periodFrom: null, periodTo: null,
+  tripsRaw: [], invoiceRaw: [], ezpassRaw: [], fuelRaw: [],
+  loads: [],          // filtered+merged loads for period
+  streetLoads: [],    // manually entered street loads
+  trucks: [],         // from Supabase
+  drivers: [],        // from Supabase
+  ezpassMap: {},      // tagId -> truck unit (from trucks table)
+  fuelMap: {},        // cardNum -> truck unit (from trucks table)
+  truckLoads: {},     // unit -> [{load rows}]
+  matchMap: {},       // unit -> driverId
+  settlements: []     // final computed
+};
+
+// ============================================================
+// HELPERS
+// ============================================================
+function fmt(n) {
+  if (n == null || isNaN(n)) return '-';
+  return '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function fmtSigned(n) {
+  if (!n) return '';
+  return (n >= 0 ? '+' : '-') + '$' + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function loading(on) { document.getElementById('loading-bar').classList.toggle('active', on); }
+function setDbStatus(ok, msg) {
+  document.getElementById('db-dot').className = 'db-dot ' + (ok ? 'connected' : 'error');
+  document.getElementById('db-status').textContent = msg;
+}
+function showToast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// Parse amount like ($4.75) or 4.75 or -4.75
+function parseAmt(str) {
+  if (str == null) return 0;
+  const s = String(str).trim();
+  const neg = s.startsWith('(') || s.startsWith('-');
+  const n = parseFloat(s.replace(/[$(),\s]/g, ''));
+  return neg ? -Math.abs(n) : n;
+}
+
+// Parse date flexibly
+function parseDate(str) {
+  if (!str) return null;
+  // Handle M/D/YY or M/D/YYYY
+  const m = String(str).match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) {
+    let y = parseInt(m[3]);
+    if (y < 100) y += 2000;
+    return new Date(y, parseInt(m[1])-1, parseInt(m[2]));
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function dateStr(d) {
+  if (!d) return '';
+  return d.toISOString().slice(0,10);
+}
+
+function inPeriod(dateVal) {
+  if (!dateVal) return false;
+  const d = parseDate(dateVal);
+  if (!d) return false;
+  const from = new Date(state.periodFrom);
+  const to = new Date(state.periodTo);
+  to.setHours(23,59,59);
+  return d >= from && d <= to;
+}
+
+// Default period: last completed Sat-Fri week
+function defaultPeriod() {
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun ... 6=Sat
+  // Find last Friday
+  const lastFri = new Date(now);
+  const daysToFri = (dow + 2) % 7; // days since last Friday
+  lastFri.setDate(now.getDate() - daysToFri - (daysToFri === 0 ? 7 : 0));
+  lastFri.setHours(0,0,0,0);
+  // Saturday is 7 days before next Friday... find the Saturday before this Friday
+  const sat = new Date(lastFri);
+  sat.setDate(lastFri.getDate() - 6);
+  return { from: dateStr(sat), to: dateStr(lastFri) };
+}
+
+// ============================================================
+// PERIOD
+// ============================================================
+function initPeriod() {
+  const p = defaultPeriod();
+  state.periodFrom = p.from;
+  state.periodTo = p.to;
+  document.getElementById('period-from').value = p.from;
+  document.getElementById('period-to').value = p.to;
+  updatePeriodDisplay();
+}
+
+function onPeriodChange() {
+  state.periodFrom = document.getElementById('period-from').value;
+  state.periodTo = document.getElementById('period-to').value;
+  updatePeriodDisplay();
+  // Re-filter if data is loaded
+  if (state.tripsRaw.length) processLoads();
+  if (state.ezpassRaw.length) processEzpass();
+  if (state.fuelRaw.length) processFuel();
+}
+
+function updatePeriodDisplay() {
+  const from = new Date(state.periodFrom + 'T12:00:00');
+  const to = new Date(state.periodTo + 'T12:00:00');
+  const opts = { month:'short', day:'numeric', year:'numeric' };
+  document.getElementById('period-display').textContent =
+    from.toLocaleDateString('en-US', opts) + ' - ' + to.toLocaleDateString('en-US', opts);
+}
+
+// ============================================================
+// SUPABASE LOAD
+// ============================================================
+async function loadSupabase() {
+  loading(true);
+  try {
+    const [trucks, drivers] = await Promise.all([
+      dbSelect('trucks', 'org_id=eq.' + ORG_ID + '&order=unit'),
+      dbSelect('drivers', 'org_id=eq.' + ORG_ID + '&status=eq.active&order=last')
+    ]);
+    state.trucks = trucks;
+    state.drivers = drivers;
+    // Re-process CSV if already uploaded (drivers were empty during first parse)
+    if (state.tripsRaw.length) processLoads();
+    if (state.ezpassRaw.length) processEzpass();
+    if (state.fuelRaw.length) processFuel();
+    // Build tag->unit and card->unit maps from ded JSONB
+    state.ezpassMap = {};
+    state.fuelMap = {};
+    trucks.forEach(t => {
+      const ded = t.ded ? (typeof t.ded === 'string' ? JSON.parse(t.ded) : t.ded) : {};
+      // EZPass: ded.ezpass.id e.g. "014 02604019 X" -> normalize to digits only -> "1402604019"
+      if (ded.ezpass && ded.ezpass.on && ded.ezpass.id) {
+        const rawTag = String(ded.ezpass.id).trim();
+        // Normalize: strip all non-digits
+        const normTag = rawTag.replace(/\D/g, '');
+        if (normTag) state.ezpassMap[normTag] = t.unit;
+      }
+      // Fuel Card: ded.fuel.id e.g. "87" -> matches Card # in CSV
+      if (ded.fuel && ded.fuel.on && ded.fuel.id) {
+        const cardId = String(ded.fuel.id).trim();
+        if (cardId) state.fuelMap[cardId] = t.unit;
+      }
+    });
+    setDbStatus(true, 'Connected');
+  } catch(e) {
+    setDbStatus(false, 'Error');
+    showToast('DB error: ' + e.message, true);
+  } finally {
+    loading(false);
+  }
+}
+
+// ============================================================
+// FILE UPLOAD HANDLERS
+// ============================================================
+function onDrag(e, type) { e.preventDefault(); document.getElementById('zone-'+type).classList.add('drag'); }
+function offDrag(type) { document.getElementById('zone-'+type).classList.remove('drag'); }
+function onDrop(e, type) { e.preventDefault(); offDrag(type); const f = e.dataTransfer.files[0]; if(f) handleFile(f, type); }
+function onFile(e, type) { const f = e.target.files[0]; if(f) handleFile(f, type); }
+
+function handleFile(file, type) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+      processFile(data, type, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: r => processFile(r.data, type, file.name)
+    });
+  }
+}
+
+function processFile(data, type, name) {
+  if (type === 'trips') { state.tripsRaw = data; processLoads(); }
+  else if (type === 'invoice') { state.invoiceRaw = data; processLoads(); }
+  else if (type === 'ezpass') { state.ezpassRaw = data; processEzpass(); }
+  else if (type === 'fuel') { state.fuelRaw = data; processFuel(); }
+  markZoneLoaded(type, name, data.length);
+}
+
+function markZoneLoaded(type, name, count) {
+  const zone = document.getElementById('zone-' + type);
+  zone.classList.add('loaded');
+  document.getElementById('status-' + type).textContent = count + ' rows loaded';
+}
+
+// ============================================================
+// PROCESS LOADS (Trips + Invoice join)
+// ============================================================
+function processLoads() {
+  if (!state.tripsRaw.length) return;
+
+  // Build invoice lookup by load_id
+  const invoiceLookup = {};
+  state.invoiceRaw.forEach(row => {
+    const id = row['load_id'] || row['Load ID'] || row['LoadID'] || row['id'] || row['ID'];
+    if (id) invoiceLookup[String(id).trim()] = row;
+  });
+
+  // Map trips columns flexibly
+  const loads = [];
+  state.tripsRaw.forEach(row => {
+    // Try various column name conventions
+    const loadId = col(row, ['load_id','Load ID','LoadID','Load#','load #','Trip ID','trip_id']) || '';
+    let truckUnit = col(row, ['truck','Truck','Truck Unit','truck_unit','Truck #']) || '';
+    const tractorPlate = col(row, ['Tractor Vehicle ID','tractor_vehicle_id','Tractor ID','tractor']) || '';
+    const dateVal = col(row, ['date','Date','pickup_date','Pickup Date','dispatch_date','Trip Date','ship_date','Stop 1 Planned Arrival Date','Stop 1  Actual Arrival Date','Stop 2 Planned Arrival Date']) || '';
+    const gross = parseFloat(col(row, ['gross','Gross','gross_pay','rate','Rate','total','Total','Amount','amount','Estimated Cost','estimated_cost']) || '0') || 0;
+    const loadType = col(row, ['type','Type','load_type','Load Type','source','Source']) || '';
+
+    // DRIVER NAME FALLBACK: if no truck unit in CSV, resolve via driver name -> driver.truck
+    if (!truckUnit) {
+      const driverName = col(row, ['driver','Driver','driver_name','Driver Name','operator','Operator','Driver/Operator']) || '';
+      if (driverName) {
+        const nameLower = driverName.trim().toLowerCase();
+        const matched = state.drivers.find(d => {
+          const full = ((d.first||'') + ' ' + (d.last||'')).toLowerCase();
+          const fullRev = ((d.last||'') + ' ' + (d.first||'')).toLowerCase();
+          return full === nameLower || fullRev === nameLower ||
+                 full.includes(nameLower) || nameLower.includes((d.first||'').toLowerCase()) && nameLower.includes((d.last||'').toLowerCase());
+        });
+        if (matched && matched.truck) truckUnit = matched.truck;
+      }
+    }
+
+    // PLATE FALLBACK: if still no unit, find truck by plate (Tractor Vehicle ID)
+    if (!truckUnit && tractorPlate) {
+      const matchTruck = state.trucks.find(t =>
+        t.plate && t.plate.trim().toUpperCase() === tractorPlate.trim().toUpperCase()
+      );
+      if (matchTruck) truckUnit = matchTruck.unit;
+    }
+
+    if (!truckUnit) return;
+
+    // Filter by period using date
+    if (dateVal && !inPeriod(dateVal)) return;
+
+    const inv = invoiceLookup[loadId] || {};
+    loads.push({ loadId, truckUnit: String(truckUnit).trim(), dateVal, gross, loadType, raw: row, invoice: inv });
+  });
+
+  state.loads = loads;
+
+  // Merge street loads into the mix
+  const allLoads = [...loads, ...state.streetLoads];
+
+  // Group by truck
+  state.truckLoads = {};
+  allLoads.forEach(l => {
+    if (!state.truckLoads[l.truckUnit]) state.truckLoads[l.truckUnit] = [];
+    state.truckLoads[l.truckUnit].push(l);
+  });
+
+  renderLoadsPreview();
+  checkStep1Ready();
+}
+
+function col(row, names) {
+  for (const n of names) {
+    if (row[n] !== undefined && row[n] !== '') return row[n];
+  }
+  return null;
+}
+
+// ============================================================
+// PROCESS EZPASS
+// ============================================================
+function processEzpass() {
+  // Normalize TAG ID to digits only, filter by Posting Date in period
+  const byTag = {};
+  state.ezpassRaw.forEach(row => {
+    const rawTag = String(row["TAG ID"] || row["Tag ID"] || row["tag_id"] || "").trim();
+    const normTag = rawTag.replace(/\D/g, ""); // "014 02604019 X" -> "1402604019"
+    const postDate = row["Posting Date"] || row["posting_date"] || "";
+    const amt = Math.abs(parseAmt(row["Amount"] || row["amount"] || "0"));
+    if (!normTag || !amt) return;
+    if (!inPeriod(postDate)) return;
+    if (!byTag[normTag]) byTag[normTag] = 0;
+    byTag[normTag] += amt;
+  });
+  // Map to truck units (ezpassMap keys are also digits-only)
+  state.ezpassByUnit = {};
+  Object.entries(byTag).forEach(([tag, amt]) => {
+    const unit = state.ezpassMap[tag];
+    if (unit) state.ezpassByUnit[unit] = (state.ezpassByUnit[unit] || 0) + amt;
+  });
+}
+
+// ============================================================
+// PROCESS FUEL
+// ============================================================
+function processFuel() {
+  const byCard = {};
+  state.fuelRaw.forEach(row => {
+    const card = String(row['Card #'] || row['card'] || row['Card'] || '').trim();
+    const tranDate = row['Tran Date'] || row['tran_date'] || row['Date'] || '';
+    const amt = parseFloat(row['Amt'] || row['amt'] || row['Amount'] || '0') || 0;
+    if (!card || !amt) return;
+    if (!inPeriod(tranDate)) return;
+    if (!byCard[card]) byCard[card] = 0;
+    byCard[card] += amt;
+  });
+  // Map to truck units using fuelMap
+  state.fuelByUnit = {};
+  Object.entries(byCard).forEach(([card, amt]) => {
+    const unit = state.fuelMap[card];
+    if (unit) {
+      state.fuelByUnit[unit] = (state.fuelByUnit[unit] || 0) + amt;
+    }
+  });
+}
+
+// ============================================================
+// LOADS PREVIEW (just updates status badge — no separate preview panel)
+// ============================================================
+function renderLoadsPreview() {
+  const total = state.tripsRaw.length;
+  const filtered = state.loads.length;
+  if (filtered) {
+    document.getElementById('status-trips').textContent =
+      filtered + ' loads in period' + (total > filtered ? ' (' + (total - filtered) + ' filtered)' : '');
+  }
+}
+
+// ============================================================
+// STEP NAVIGATION
+// ============================================================
+function checkStep1Ready() {
+  const hasLoads = state.loads.length > 0 || state.streetLoads.length > 0;
+  document.getElementById('btn-next-1').disabled = !hasLoads;
+  document.getElementById('truck-assign-wrap').style.display = hasLoads ? '' : 'none';
+  if (hasLoads) buildTruckAssign();
+}
+
+function goStep(n) {
+  [1,2].forEach(i => {
+    document.getElementById('step-'+i).style.display = i === n ? '' : 'none';
+  });
+  [1,2].forEach(i => {
+    const tab = document.getElementById('step-'+i+'-tab');
+    tab.className = 'wizard-step';
+    if (i === n) tab.classList.add('active');
+    else if (i < n) tab.classList.add('done');
+  });
+}
+
+// ============================================================
+// TRUCK / DRIVER ASSIGNMENT (inline, step 1)
+// ============================================================
+function buildTruckAssign() {
+  const units = Object.keys(state.truckLoads).sort();
+  document.getElementById('truck-assign-count').textContent = units.length + ' trucks';
+
+  const list = document.getElementById('truck-assign-list');
+  list.innerHTML = units.map(unit => {
+    const loads = state.truckLoads[unit];
+    const gross = loads.reduce((s,l) => s + l.gross, 0);
+    const truckDb = state.trucks.find(t => t.unit === unit);
+    const autoDriver = state.drivers.find(d => d.truck === unit);
+    if (!state.matchMap[unit] && autoDriver) state.matchMap[unit] = autoDriver.id;
+
+    const driverOptions = state.drivers.map(d =>
+      '<option value="' + d.id + '"' + (state.matchMap[unit] === d.id ? ' selected' : '') + '>'
+      + d.first + ' ' + d.last + ' (' + d.type + ')</option>'
+    ).join('');
+
+    const ezAmt = (state.ezpassByUnit || {})[unit] || 0;
+    const fuelAmt = (state.fuelByUnit || {})[unit] || 0;
+    const streetCount = loads.filter(l => l.isStreet).length;
+    const amazonCount = loads.length - streetCount;
+
+    return '<div class="match-row">'
+      + '<span class="truck-chip">' + unit + '</span>'
+      + (truckDb
+          ? '<span style="font-size:11px;color:var(--text3);min-width:80px">' + (truckDb.make||'') + ' ' + (truckDb.model||'') + '</span>'
+          : '<span style="font-size:11px;color:var(--red);min-width:80px">Not in DB</span>')
+      + '<select class="driver-select" id="match-'+unit+'" onchange="onMatchChange(''+unit+'')" style="min-width:180px;max-width:220px">'
+      + '<option value="">-- Unassigned --</option>'
+      + driverOptions
+      + '</select>'
+      + '<span class="match-gross">' + fmt(gross) + '</span>'
+      + '<span class="match-loads">'
+        + (amazonCount ? '<span class="badge badge-blue" style="margin-right:3px">' + amazonCount + ' Amazon</span>' : '')
+        + (streetCount ? '<span class="badge badge-orange">' + streetCount + ' Street</span>' : '')
+      + '</span>'
+      + (ezAmt ? '<span class="badge badge-orange" style="font-size:10px">EZPass ' + fmt(ezAmt) + '</span>' : '')
+      + (fuelAmt ? '<span class="badge badge-blue" style="font-size:10px">Fuel ' + fmt(fuelAmt) + '</span>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function onMatchChange(unit) {
+  state.matchMap[unit] = document.getElementById('match-' + unit).value;
+}
+
+
+// ============================================================
+// STEP 2: GENERATE SETTLEMENTS
+// ============================================================
+function generateSettlements() {
+  const units = Object.keys(state.truckLoads).sort();
+  state.settlements = [];
+
+  units.forEach(unit => {
+    const driverId = state.matchMap[unit];
+    if (!driverId) return; // Skip unassigned
+
+    const driver = state.drivers.find(d => d.id === driverId);
+    if (!driver) return;
+
+    const truck = state.trucks.find(t => t.unit === unit);
+    const loads = state.truckLoads[unit];
+    const gross = loads.reduce((s,l) => s + l.gross, 0);
+
+    // Deductions from truck.ded JSONB
+    const ded = truck && truck.ded ? (typeof truck.ded === 'string' ? JSON.parse(truck.ded) : truck.ded) : {};
+
+    // EZPass & Fuel (dynamic from uploaded files)
+    const ezpass = (state.ezpassByUnit || {})[unit] || 0;
+    const fuel = (state.fuelByUnit || {})[unit] || 0;
+
+    // Dispatch deduction (manual amount stored in truck profile)
+    const dispatchDed = parseFloat(ded.dispatch_amount || truck?.dispatch_amount || 0) || 0;
+
+    // Fixed deductions from ded JSONB
+    const fixedDeds = [];
+    const dedFields = [
+      { key:'tablet',        label:'Tablet' },
+      { key:'insurance',     label:'Insurance' },
+      { key:'phys_dmg',      label:'Phys Damage' },
+      { key:'ifta',          label:'IFTA' },
+      { key:'admin',         label:'Admin' },
+      { key:'trailer_rent',  label:'Trailer Rent' },
+      { key:'samsara',       label:'Samsara' },
+    ];
+    let fixedTotal = 0;
+    dedFields.forEach(f => {
+      const entry = ded[f.key];
+      if (entry && (entry.on === true || entry.on === 'true' || entry.on === 1)) {
+        const amt = parseFloat(entry.amt || entry.amount || 0) || 0;
+        if (amt) { fixedDeds.push({ label: f.label, amt }); fixedTotal += amt; }
+      }
+    });
+    // PrePass: fixed $7/week if on:true
+    const PREPASS_WEEKLY = 7;
+    if (ded.prepass && (ded.prepass.on === true || ded.prepass.on === 'true')) {
+      fixedDeds.push({ label: 'PrePass', amt: PREPASS_WEEKLY });
+      fixedTotal += PREPASS_WEEKLY;
+    }
+
+    // Truck payment (POO only)
+    let truckPayment = 0;
+    if (driver.type === 'POO' && ded.truck_payment && (ded.truck_payment.on === true || ded.truck_payment.on === 'true')) {
+      truckPayment = parseFloat(ded.truck_payment.amount || 0) || 0;
+    }
+
+    if (driver.type === 'CT') {
+      // CT: 2 statements
+      const driverRate = (driver.pay_rate || 35) / 100;
+      const driverPay = gross * driverRate;
+
+      // TRUCK STATEMENT
+      const truckNet = gross - dispatchDed - fixedTotal - ezpass - fuel - truckPayment - driverPay;
+      state.settlements.push({
+        type: 'CT_TRUCK',
+        unit, driver, truck, loads, gross,
+        dispatchDed, fixedDeds, fixedTotal, ezpass, fuel, truckPayment, driverPay, driverRate,
+        adjustments: [],
+        net: truckNet
+      });
+
+      // DRIVER STATEMENT
+      state.settlements.push({
+        type: 'CT_DRIVER',
+        unit, driver, truck, loads, gross,
+        driverPay, driverRate,
+        adjustments: [],
+        net: driverPay
+      });
+
+    } else {
+      // P / POO / OO: single statement
+      let net = gross;
+
+      // OO: company takes (100 - payRate)% first
+      let companyCut = 0;
+      if (driver.type === 'OO') {
+        companyCut = gross * (1 - (driver.pay_rate || 90) / 100);
+        net -= companyCut;
+      }
+
+      net -= dispatchDed + fixedTotal + ezpass + fuel + truckPayment;
+
+      state.settlements.push({
+        type: driver.type,
+        unit, driver, truck, loads, gross,
+        companyCut, dispatchDed, fixedDeds, fixedTotal, ezpass, fuel, truckPayment,
+        adjustments: [],
+        net
+      });
+    }
+  });
+
+  renderSettlements();
+  goStep(2);
+}
+
+// ============================================================
+// RENDER SETTLEMENTS
+// ============================================================
+function renderSettlements() {
+  // Summary bar
+  const allStmts = state.settlements.filter(s => s.type !== 'CT_DRIVER');
+  const totalGross = allStmts.reduce((s,x) => s + x.gross, 0);
+  const totalNet = state.settlements.filter(s => !['CT_TRUCK'].includes(s.type) || true)
+    .reduce((s,x) => s + (x.type === 'CT_TRUCK' ? x.net : x.type === 'CT_DRIVER' ? 0 : x.net), 0);
+  const totalDriverPay = state.settlements
+    .filter(s => s.type === 'CT_DRIVER')
+    .reduce((s,x) => s + x.net, 0);
+  const stmtCount = state.settlements.length;
+
+  document.getElementById('summary-bar').innerHTML =
+    '<div class="sum-card"><div class="sum-lbl">Total Gross</div><div class="sum-val text-green">' + fmt(totalGross) + '</div><div class="sum-sub">' + allStmts.length + ' trucks</div></div>'
+    + '<div class="sum-card"><div class="sum-lbl">Statements</div><div class="sum-val">' + stmtCount + '</div><div class="sum-sub">including CT splits</div></div>'
+    + '<div class="sum-card"><div class="sum-lbl">Period</div><div class="sum-val" style="font-size:14px;font-family:var(--mono)">' + state.periodFrom + '</div><div class="sum-sub">to ' + state.periodTo + '</div></div>'
+    + '<div class="sum-card"><div class="sum-lbl">CT Driver Pay</div><div class="sum-val">' + fmt(totalDriverPay) + '</div><div class="sum-sub">separate statements</div></div>';
+
+  // Render each statement card
+  document.getElementById('settlement-grid').innerHTML = state.settlements.map((s, idx) => renderStmtCard(s, idx)).join('');
+}
+
+function renderStmtCard(s, idx) {
+  const isCtTruck = s.type === 'CT_TRUCK';
+  const isCtDriver = s.type === 'CT_DRIVER';
+
+  const headerClass = isCtTruck ? 'stmt-header ct-truck' : isCtDriver ? 'stmt-header ct-driver' : 'stmt-header';
+
+  // Type badge label
+  const typeLabel = isCtTruck ? 'CT - Truck Stmt' : isCtDriver ? 'CT - Driver Stmt' : s.type;
+
+  // Driver name & company
+  const driverName = s.driver.first + ' ' + s.driver.last;
+  const company = s.driver.company || '';
+
+  let bodyHTML = '';
+
+  if (isCtDriver) {
+    // CT Driver statement: just gross * rate + adjustments
+    bodyHTML +=
+      stmtRow('Gross Revenue', fmt(s.gross), 'gross') +
+      stmtRow('Driver Pay Rate', (s.driverRate * 100).toFixed(0) + '%', '') +
+      '<div class="stmt-divider"></div>' +
+      stmtRow('Driver Pay', fmt(s.driverPay), 'pos');
+
+    bodyHTML += adjSection(idx);
+    const adjTotal = calcAdjTotal(s.adjustments);
+    const finalNet = s.driverPay + adjTotal;
+
+    return stmtCardWrap(headerClass, 'Unit ' + s.unit + ' - Driver Statement', driverName + (company ? ' · ' + company : ''), typeLabel, bodyHTML, finalNet, idx);
+  }
+
+  // Regular or CT Truck
+  bodyHTML += stmtRow('Gross Revenue', fmt(s.gross), 'gross');
+
+  // OO company cut
+  if (s.companyCut) {
+    bodyHTML += stmtRow('Company Cut (' + (100 - (s.driver.pay_rate||90)) + '%)', '-' + fmt(s.companyCut), 'neg');
+  }
+
+  // Dispatch deduction
+  if (s.dispatchDed) {
+    bodyHTML += stmtRow('Dispatch Fee', '-' + fmt(s.dispatchDed), 'neg');
+  }
+
+  // CT driver pay
+  if (isCtTruck && s.driverPay) {
+    bodyHTML += stmtRow('Driver Pay (' + (s.driverRate*100).toFixed(0) + '%)', '-' + fmt(s.driverPay), 'neg');
+  }
+
+  // Fixed deductions
+  if (s.fixedDeds && s.fixedDeds.length) {
+    bodyHTML += '<div style="padding:4px 0 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-top:6px">Fixed Deductions</div>';
+    s.fixedDeds.forEach(d => { bodyHTML += stmtRow(d.label, '-' + fmt(d.amt), 'neg', 'sub'); });
+  }
+
+  // Dynamic deductions
+  if (s.ezpass) bodyHTML += stmtRow('EZPass (actual)', '-' + fmt(s.ezpass), 'neg');
+  if (s.fuel) bodyHTML += stmtRow('Fuel Card (actual)', '-' + fmt(s.fuel), 'neg');
+  if (s.truckPayment) bodyHTML += stmtRow('Truck Payment', '-' + fmt(s.truckPayment), 'neg');
+
+  // Adjustments section
+  bodyHTML += adjSection(idx);
+
+  const adjTotal = calcAdjTotal(s.adjustments);
+  const finalNet = s.net + adjTotal;
+
+  return stmtCardWrap(headerClass, 'Unit ' + s.unit, driverName + (company ? ' · ' + company : ''), typeLabel, bodyHTML, finalNet, idx);
+}
+
+function stmtRow(label, val, valClass, labelClass) {
+  return '<div class="stmt-row">'
+    + '<span class="stmt-row-label' + (labelClass ? ' ' + labelClass : '') + '">' + label + '</span>'
+    + '<span class="stmt-row-val' + (valClass ? ' ' + valClass : '') + '">' + val + '</span>'
+    + '</div>';
+}
+
+function stmtCardWrap(headerClass, title, subtitle, badge, body, net, idx) {
+  return '<div class="stmt-card" id="stmt-' + idx + '">'
+    + '<div class="' + headerClass + '">'
+    + '<div><div class="stmt-title">' + title + '</div><div class="stmt-subtitle">' + subtitle + '</div></div>'
+    + '<span class="stmt-type-badge">' + badge + '</span>'
+    + '</div>'
+    + '<div class="stmt-body">' + body + '</div>'
+    + '<div class="stmt-net">'
+    + '<span class="stmt-net-label">Net Pay</span>'
+    + '<span class="stmt-net-val' + (net < 0 ? ' negative' : '') + '" id="net-' + idx + '">' + fmt(net) + '</span>'
+    + '</div>'
+    + '<div class="stmt-footer no-print">'
+    + '<button class="btn btn-outline btn-xs" onclick="addAdj(' + idx + ')">+ Adjustment</button>'
+    + '</div>'
+    + '</div>';
+}
+
+function adjSection(idx) {
+  const s = state.settlements[idx];
+  if (!s || !s.adjustments || !s.adjustments.length) return '';
+  return '<div style="padding:4px 0 2px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-top:6px">Adjustments</div>'
+    + s.adjustments.map((a, ai) =>
+      stmtRow((a.amt >= 0 ? '+' : '-') + ' ' + (a.desc || 'Adjustment'), fmtSigned(a.amt), a.amt >= 0 ? 'pos' : 'neg')
+    ).join('');
+}
+
+function calcAdjTotal(adjs) {
+  return (adjs || []).reduce((s, a) => s + (a.amt || 0), 0);
+}
+
+// ============================================================
+// ADJUSTMENTS
+// ============================================================
+function addAdj(idx) {
+  const s = state.settlements[idx];
+  if (!s) return;
+
+  // Show inline adj dialog
+  const footer = document.querySelector('#stmt-' + idx + ' .stmt-footer');
+  const adjId = 'adj-input-' + idx + '-' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'adj-row';
+  div.innerHTML =
+    '<span class="adj-sign pos">+/-</span>'
+    + '<input class="adj-input" id="' + adjId + '-amt" type="number" step="0.01" placeholder="0.00">'
+    + '<input class="adj-desc" id="' + adjId + '-desc" type="text" placeholder="Description...">'
+    + '<button class="btn btn-primary btn-xs" onclick="saveAdj(' + idx + ',\'' + adjId + '\')">Add</button>'
+    + '<button class="btn btn-outline btn-xs" onclick="this.parentElement.remove()">x</button>';
+  footer.insertBefore(div, footer.firstChild);
+}
+
+function saveAdj(idx, adjId) {
+  const amtEl = document.getElementById(adjId + '-amt');
+  const descEl = document.getElementById(adjId + '-desc');
+  const amt = parseFloat(amtEl.value) || 0;
+  const desc = descEl.value.trim();
+  if (!amt) { showToast('Enter an amount', true); return; }
+
+  state.settlements[idx].adjustments.push({ amt, desc });
+
+  // Update net display
+  const s = state.settlements[idx];
+  const baseNet = s.type === 'CT_DRIVER' ? s.driverPay : s.net;
+  const adjTotal = calcAdjTotal(s.adjustments);
+  const finalNet = baseNet + adjTotal;
+  document.getElementById('net-' + idx).textContent = fmt(finalNet);
+  document.getElementById('net-' + idx).className = 'stmt-net-val' + (finalNet < 0 ? ' negative' : '');
+
+  amtEl.parentElement.remove();
+  showToast('Adjustment added');
+
+  // Re-render adj section
+  const body = document.querySelector('#stmt-' + idx + ' .stmt-body');
+  const adjSec = body.querySelector('.adj-section-wrap');
+  if (adjSec) adjSec.remove();
+  // Append updated adj rows
+  const wrap = document.createElement('div');
+  wrap.className = 'adj-section-wrap';
+  wrap.innerHTML = adjSection(idx);
+  body.appendChild(wrap);
+}
+
+// ============================================================
+// RESET
+// ============================================================
+function resetAll() {
+  state.tripsRaw = []; state.invoiceRaw = []; state.ezpassRaw = []; state.fuelRaw = [];
+  state.loads = []; state.streetLoads = []; state.truckLoads = {}; state.matchMap = {}; state.settlements = [];
+  state.ezpassByUnit = {}; state.fuelByUnit = {};
+  ['trips','invoice','ezpass','fuel'].forEach(t => {
+    const z = document.getElementById('zone-'+t);
+    z.classList.remove('loaded','drag');
+    document.getElementById('status-'+t).textContent = '';
+  });
+  document.getElementById('street-loads-list').innerHTML =
+    '<div style="font-size:12px;color:var(--text3);padding:8px 0">No street loads added. Click "+ Add Load" to enter manually.</div>';
+  document.getElementById('street-count-badge').textContent = '0 loads';
+  document.getElementById('btn-next-1').disabled = true;
+  goStep(1);
+}
+
+// ============================================================
+// STREET LOADS (manual entry)
+// ============================================================
+function addStreetLoad() {
+  const id = 'sl-' + Date.now();
+  const truckOptions = state.trucks.map(t =>
+    '<option value="' + t.unit + '">' + t.unit + ' — ' + (t.make||'') + ' ' + (t.model||'') + '</option>'
+  ).join('');
+
+  const row = document.createElement('div');
+  row.className = 'street-load-row';
+  row.id = id;
+  row.style.cssText = 'display:grid;grid-template-columns:110px 140px 130px 110px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)';
+  row.innerHTML =
+    '<input class="period-input" placeholder="Load #" id="' + id + '-num" style="width:100%">'
+    + '<select class="driver-select" id="' + id + '-truck" style="width:100%;min-width:0"><option value="">-- Truck --</option>' + truckOptions + '</select>'
+    + '<input class="period-input" type="date" id="' + id + '-date" value="' + state.periodFrom + '" style="width:100%">'
+    + '<input class="period-input" type="number" placeholder="Gross $" id="' + id + '-gross" step="0.01" style="width:100%">'
+    + '<button class="btn btn-danger btn-xs" onclick="removeStreetLoad(\'' + id + '\')">✕</button>';
+
+  const list = document.getElementById('street-loads-list');
+  // Remove empty placeholder
+  const placeholder = list.querySelector('div');
+  if (placeholder) placeholder.remove();
+  list.appendChild(row);
+}
+
+function removeStreetLoad(id) {
+  document.getElementById(id)?.remove();
+  state.streetLoads = state.streetLoads.filter(l => l._id !== id);
+  const list = document.getElementById('street-loads-list');
+  if (!list.children.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">No street loads added. Click "+ Add Load" to enter manually.</div>';
+  }
+  rebuildStreetLoads();
+}
+
+function rebuildStreetLoads() {
+  // Collect all current street-load-row entries
+  const rows = document.querySelectorAll('.street-load-row');
+  state.streetLoads = [];
+  rows.forEach(row => {
+    const id = row.id;
+    const loadId = document.getElementById(id + '-num')?.value?.trim() || '';
+    const truckUnit = document.getElementById(id + '-truck')?.value || '';
+    const dateVal = document.getElementById(id + '-date')?.value || '';
+    const gross = parseFloat(document.getElementById(id + '-gross')?.value || '0') || 0;
+    const loadType = 'Street';
+    if (!truckUnit) return;
+    state.streetLoads.push({ _id: id, loadId, truckUnit, dateVal, gross, loadType, isStreet: true });
+  });
+
+  // Update badge
+  document.getElementById('street-count-badge').textContent = state.streetLoads.length + ' loads';
+
+  // Re-merge into truckLoads
+  const allLoads = [...state.loads, ...state.streetLoads];
+  state.truckLoads = {};
+  allLoads.forEach(l => {
+    if (!state.truckLoads[l.truckUnit]) state.truckLoads[l.truckUnit] = [];
+    state.truckLoads[l.truckUnit].push(l);
+  });
+
+  checkStep1Ready();
+}
+
+// Auto-save street loads on any input change
+document.addEventListener('input', e => {
+  if (e.target.closest('.street-load-row')) rebuildStreetLoads();
+});
+document.addEventListener('change', e => {
+  if (e.target.closest('.street-load-row')) rebuildStreetLoads();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+initPeriod();
+loadSupabase();
+</script>
+</body>
+</html>
