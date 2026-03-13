@@ -883,12 +883,20 @@ async function saveSettlementsToDb() {
   const pFrom = document.getElementById('period-from').value;
   const pTo   = document.getElementById('period-to').value;
 
-  const rows = S.assigns.map(a => {
+  // Deterministic ID: org + settle_id + week_start + truck — upsert overwrites on re-generate
+  async function stableUUID(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    const h = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-${((parseInt(h.slice(16,18),16)&0x3f)|0x80).toString(16)}${h.slice(18,20)}-${h.slice(20,32)}`;
+  }
+
+  const rows = await Promise.all(S.assigns.map(async a => {
     const s    = calcSettlement(a);
     const adjs = (adjState[S.assigns.indexOf(a)] || []).filter(Boolean);
     const adjTotal = adjs.reduce((sum,x) => sum+(x.amt||0), 0);
+    const stableId = await stableUUID(`${ORG_ID}|${a.settlId}|${pFrom}|${a.truckObj?.unit||a.truck}`);
     return {
-      id: crypto.randomUUID(),
+      id: stableId,
       org_id: ORG_ID,
       settle_id: a.settlId,
       week_start: pFrom,
@@ -941,7 +949,7 @@ async function saveSettlementsToDb() {
       })),
       status: 'generated',
     };
-  });
+  }));
 
   try {
     await db.upsert('settlements', rows);
