@@ -925,6 +925,20 @@ async function saveSettlementsToDb() {
       invoice_id: S.invoice.invoice_id || null,
       loads_count: a.loads.length,
       miles: Math.round(a.miles * 10) / 10,
+      loads: a.loads.map(l => ({
+        id:          l.id,
+        type:        l.type,
+        date:        l.date,
+        end_date:    l.end_date,
+        origin:      l.origin,
+        destination: l.destination,
+        miles:       Math.round(l.miles * 10) / 10,
+        gross:       Math.round(l.gross * 100) / 100,
+        tour_base:   Math.round((l.tour_base||0) * 100) / 100,
+        additions:   Math.round((l.additions||0) * 100) / 100,
+        legs_count:  l.legs ? l.legs.length : 1,
+        item_type:   l.item_type || '',
+      })),
       status: 'generated',
     };
   });
