@@ -93,6 +93,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .upload-card{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--r);padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
 .upload-card:hover,.upload-card.drag{border-color:var(--blue);background:var(--blue-l)}
 .upload-card.done{border-style:solid;border-color:var(--green);background:var(--green-l);cursor:default}
+.upload-summary{margin-top:8px}
+.sum-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.sum-chip{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,255,255,.7);color:var(--text2);border:1px solid var(--border)}
+.sum-chip.green{background:#D1FAE5;color:#065F46;border-color:#A7F3D0}
+.sum-chip.red{background:#FEF2F2;color:#991B1B;border-color:#FECACA}
+.sum-chip.period{background:#EFF6FF;color:var(--blue);border-color:#BFDBFE;font-family:var(--mono);font-size:10px}
 .upload-card.done:hover{background:var(--green-l)}
 .upload-card.optional{border-color:var(--border);border-style:dashed}
 .upload-card-icon{font-size:24px;margin-bottom:6px}
@@ -224,9 +230,7 @@ select.inline-sel:focus{border-color:var(--blue)}
       <a class="nav-item" href="nexus-tms-street-loads.html">
         <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l4-7 3 5 2-3 3 5"/></svg>Street Loads
       </a>
-      <a class="nav-item" href="nexus-tms-imports.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M2 12h12"/></svg>Data Imports
-      </a>
+
     </div>
     <div class="nav-section">
       <div class="nav-section-label">Management</div>
@@ -575,16 +579,16 @@ function storeFile(data, name, hint) {
 
   if (detected === 'trips') {
     S.trips = parseTrips(data);
-    markDone('trips', name, S.trips.length + ' loads');
+    markDone('trips', name, S.trips.length + ' loads', buildSummary('trips', S.trips, data));
   } else if (detected === 'invoice') {
     S.invoice = parseInvoice(data);
-    markDone('invoice', name, S.invoice.rows.length + ' rows · $' + fmt(S.invoice.total));
+    markDone('invoice', name, S.invoice.rows.length + ' rows · $' + fmt(S.invoice.total), buildSummary('invoice', S.invoice, data));
   } else if (detected === 'ezpass') {
     S.ezpass = parseEZPass(data);
-    markDone('ezpass', name, Object.keys(S.ezpass).length + ' tags');
+    markDone('ezpass', name, Object.keys(S.ezpass).length + ' tags', buildSummary('ezpass', S.ezpass, data));
   } else if (detected === 'fuel') {
     S.fuel = parseFuel(data);
-    markDone('fuel', name, Object.keys(S.fuel).length + ' cards');
+    markDone('fuel', name, Object.keys(S.fuel).length + ' cards', buildSummary('fuel', S.fuel, data));
   } else {
     toast('Could not detect file type: ' + name);
     return;
@@ -592,12 +596,60 @@ function storeFile(data, name, hint) {
   checkStep1Ready();
 }
 
-function markDone(type, name, detail) {
+function markDone(type, name, detail, summary) {
   document.getElementById('card-'+type).className = 'upload-card done';
+  const summaryHtml = summary ? `<div class="upload-summary">${summary}</div>` : '';
   document.getElementById('status-'+type).innerHTML =
-    `<span class="upload-card-badge success">✓ ${type === 'trips' ? 'Trips' : type === 'invoice' ? 'Invoice' : type.toUpperCase()}</span>
+    `<span class="upload-card-badge success">✓ ${type === 'trips' ? 'Trips' : type === 'invoice' ? 'Invoice' : type === 'ezpass' ? 'EZPass' : type === 'fuel' ? 'Fuel' : type.toUpperCase()}</span>
      <div class="upload-card-filename">${name}</div>
-     <div style="font-size:11px;color:var(--green-d);margin-top:2px">${detail}</div>`;
+     <div style="font-size:11px;color:var(--green-d);margin-top:2px">${detail}</div>
+     ${summaryHtml}`;
+}
+
+function buildSummary(type, data, rows) {
+  const fmt2 = n => Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtInt = n => Number(n||0).toLocaleString('en-US');
+  if (type === 'trips') {
+    const trucks  = new Set(rows.map(r => String(r['Tractor Vehicle ID']||r['truck_id']||'')).filter(Boolean));
+    const drivers = new Set(rows.map(r => String(r['Driver Name']||'')).filter(Boolean));
+    const dates   = rows.map(r => String(r['Stop 1 Planned Arrival Date']||'')).filter(Boolean).sort();
+    const tours   = new Set(rows.map(r => { const t=String(r['Trip ID']||''); return t.startsWith('T-')?t:null; }).filter(Boolean));
+    const period  = dates.length ? dates[0].slice(0,10) + ' → ' + dates[dates.length-1].slice(0,10) : '';
+    return `<div class="sum-chips">
+      <span class="sum-chip">${fmtInt(data.length)} loads</span>
+      <span class="sum-chip">${trucks.size} trucks</span>
+      <span class="sum-chip">${drivers.size} drivers</span>
+      ${tours.size ? `<span class="sum-chip">${tours.size} tours</span>` : ''}
+      ${period ? `<span class="sum-chip period">${period}</span>` : ''}
+    </div>`;
+  }
+  if (type === 'invoice') {
+    const total = data.rows.reduce((a,r)=>a+r.gross_pay,0);
+    return `<div class="sum-chips">
+      <span class="sum-chip">${fmtInt(data.rows.length)} rows</span>
+      <span class="sum-chip green">$${fmt2(total)} gross</span>
+      ${data.invoice_id ? `<span class="sum-chip period">${data.invoice_id.slice(0,20)}</span>` : ''}
+    </div>`;
+  }
+  if (type === 'ezpass') {
+    const tags  = Object.keys(data);
+    const total = Object.values(data).reduce((a,v)=>a+v,0);
+    return `<div class="sum-chips">
+      <span class="sum-chip">${fmtInt(rows.length)} transactions</span>
+      <span class="sum-chip">${tags.length} tags</span>
+      <span class="sum-chip red">$${fmt2(total)} charges</span>
+    </div>`;
+  }
+  if (type === 'fuel') {
+    const cards = Object.keys(data);
+    const total = Object.values(data).reduce((a,v)=>a+v,0);
+    return `<div class="sum-chips">
+      <span class="sum-chip">${fmtInt(rows.length)} transactions</span>
+      <span class="sum-chip">${cards.length} cards</span>
+      <span class="sum-chip red">$${fmt2(total)} total</span>
+    </div>`;
+  }
+  return '';
 }
 
 function checkStep1Ready() {
@@ -744,6 +796,61 @@ async function processStep1() {
       miles:      displayLoads.reduce((a,l) => a + l.miles, 0),
     };
   });
+
+  // Fetch PAID street loads for the period and merge into assigns
+  const pFrom = document.getElementById('period-from').value;
+  const pTo   = document.getElementById('period-to').value;
+  try {
+    const streetLoads = await sbFetch('street_loads',
+      `org_id=eq.${ORG_ID}&status=eq.paid&pickup_date=gte.${pFrom}&pickup_date=lte.${pTo}&select=*`
+    );
+    streetLoads.forEach(sl => {
+      // Match to assign by truck_unit or driver_name
+      let assign = S.assigns.find(a =>
+        (a.truckObj && a.truckObj.unit === sl.truck_unit) ||
+        (a.driverName && sl.driver_name && a.driverName.toLowerCase() === sl.driver_name.toLowerCase())
+      );
+      // If no matching assign exists, create one
+      if (!assign) {
+        const truckObj  = S.trucks.find(t => t.unit === sl.truck_unit) || null;
+        const driverObj = S.drivers.find(d => (d.first+' '+d.last).toLowerCase() === (sl.driver_name||'').toLowerCase()) || null;
+        assign = {
+          settlId:    String(S.assigns.length + 1).padStart(4,'0'),
+          truck:      sl.truck_unit || 'STREET',
+          truckObj,
+          driverObj,
+          driverName: sl.driver_name || sl.truck_unit || 'Unknown',
+          loads:      [],
+          gross:      0,
+          miles:      0,
+        };
+        S.assigns.push(assign);
+      }
+      // Add street load as a display load using amount_received as gross
+      const streetLoad = {
+        type:        'load',
+        id:          sl.load_id || sl.id.slice(0,8),
+        origin:      sl.origin,
+        destination: sl.destination,
+        stops:       [sl.origin, sl.destination],
+        miles:       sl.miles || 0,
+        gross:       sl.amount_received || sl.gross,
+        tour_base:   sl.amount_received || sl.gross,
+        additions:   0,
+        date:        sl.pickup_date,
+        end_date:    sl.delivery_date,
+        item_type:   'Street Load',
+        legs:        [{load_id: sl.load_id, origin: sl.origin, destination: sl.destination}],
+        is_street:   true,
+      };
+      assign.loads.push(streetLoad);
+      assign.gross += streetLoad.gross;
+      assign.miles += streetLoad.miles;
+    });
+    if (streetLoads.length) toast(`+ ${streetLoads.length} street load${streetLoads.length>1?'s':''} added`);
+  } catch(e) {
+    console.warn('Street loads fetch error:', e.message);
+  }
 
   } catch(e) { console.error('processStep1 error:', e); toast('Error: ' + e.message); return; }
   generateSettlements();
@@ -1245,7 +1352,7 @@ function printSettlement(i) {
 
   const loadsRows = a.loads.map(l =>
     `<tr>
-      <td style="color:#64748B">${l.id}${l.type==='tour'?' <span style="color:#1A56DB;font-weight:600">Tour×'+l.legs.length+'</span>':''}</td>
+      <td style="color:#64748B">${l.id}${l.type==='tour'?' <span style="color:#1A56DB;font-weight:600">Tour×'+l.legs.length+'</span>':''}${l.is_street?' <span style="color:#D97706;font-weight:600;font-size:9px">STREET</span>':''}</td>
       <td style="color:#94A3B8">${l.date||''}</td>
       <td>${fc(l.origin)} → ${fc(l.destination)}</td>
       <td style="text-align:right;color:#64748B">${Math.round(l.miles)}</td>
