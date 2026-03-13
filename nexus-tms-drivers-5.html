@@ -196,6 +196,49 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="auth-err" id="auth-err"></div>
   </div>
 </div>
+<aside class="sidebar" id="app-sidebar" style="display:none">
+  <div class="logo-area">
+    <div class="logo-mark">NEXUS</div>
+    <div class="logo-sub"><span id="conn-txt">ZTA Transportation LLC</span></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-item" href="nexus-tms-settlement-v3.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
+      </a>
+      <a class="nav-item" href="nexus-tms-history.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>History
+      </a>
+      <a class="nav-item" href="nexus-tms-street-loads.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l4-7 3 5 2-3 3 5"/></svg>Street Loads
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Analytics</div>
+      <a class="nav-item" href="nexus-tms-pnl.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l3-4 3 2 3-5 3 3"/><path d="M2 14h12"/></svg>P&amp;L
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Management</div>
+      <a class="nav-item" href="nexus-tms-equipment-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
+      </a>
+      <a class="nav-item active" href="nexus-tms-drivers-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Settings</div>
+      <a class="nav-item" href="nexus-account.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/><path d="M11 3l1 1M13 5h1M11 7l1 1M5 3l-1 1M3 5H2M5 7l-1 1"/></svg>Account
+      </a>
+    </div>
+  </nav>
+  <div class="sidebar-foot">NEXUS<strong>v1.0 &middot; Drivers</strong></div>
+</aside>
+
 <div class="main">
   <div class="topbar">
     <div class="topbar-title">Drivers</div>
@@ -911,6 +954,8 @@ document.getElementById('import-overlay').addEventListener('click', function(e) 
   const ok = await restoreSession();
   if (ok) {
     document.getElementById('auth-wall').style.display = 'none';
+    const sb = document.getElementById('app-sidebar');
+    if (sb) sb.style.display = '';
     loadAll();
   } else {
     const w = document.getElementById('auth-wall');
@@ -940,6 +985,8 @@ window.authSubmit = async function() {
     sessionStorage.setItem('nexus-org-id',   _orgId);
     sessionStorage.setItem('nexus-org-name', orgs[0].name);
     document.getElementById('auth-wall').style.display = 'none';
+    const sb = document.getElementById('app-sidebar');
+    if (sb) sb.style.display = '';
     document.body.style.overflow = '';
     loadAll();
   } catch(e) {
@@ -954,6 +1001,8 @@ window.authSubmit = async function() {
   if (ok) {
     const wall = document.getElementById('auth-wall');
     if (wall) wall.style.display = 'none';
+    const sb = document.getElementById('app-sidebar');
+    if (sb) sb.style.display = '';
     loadAll();
   }
   // If not ok — auth-wall stays visible (user must sign in)
