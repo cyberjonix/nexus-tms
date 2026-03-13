@@ -209,45 +209,27 @@ select.inline-sel:focus{border-color:var(--blue)}
 <!-- SIDEBAR -->
 <aside class="sidebar" id="app-sidebar" style="display:none">
   <div class="logo-area">
-    <div class="logo-mark">Nexus TMS</div>
-    <div class="logo-sub"><span class="conn-dot" id="conn-dot"></span><span id="conn-txt">connecting…</span></div>
+    <div class="logo-mark">NEXUS</div>
+    <div class="logo-sub"><span class="conn-dot" id="conn-dot"></span><span id="conn-txt">ZTA Transportation LLC</span></div>
   </div>
   <nav class="nav">
     <div class="nav-section">
       <div class="nav-section-label">Operations</div>
-      <button class="nav-item" onclick="toast('Load Board — coming soon')">
-        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-        Load Board
-      </button>
-      <button class="nav-item" onclick="toast('Loads — coming soon')">
-        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
-        Loads
-      </button>
+      <a class="nav-item active" href="nexus-tms-settlement-v3.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
+      </a>
     </div>
     <div class="nav-section">
-      <div class="nav-section-label">Finance</div>
-      <button class="nav-item active">
-        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
-        Weekly Settlement
-      </button>
-      <button class="nav-item" onclick="toast('P&L — coming soon')">
-        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-        P&L Analytics
-      </button>
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-label">Fleet</div>
-      <button class="nav-item" onclick="window.open('nexus-tms-equipment-5.html','_blank')">
-        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
-        Equipment
-      </button>
-      <button class="nav-item" onclick="window.open('nexus-tms-drivers-5.html','_blank')">
-        <svg class="nav-ic" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
-        Drivers
-      </button>
+      <div class="nav-section-label">Management</div>
+      <a class="nav-item" href="nexus-tms-equipment-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
+      </a>
+      <a class="nav-item" href="nexus-tms-drivers-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
+      </a>
     </div>
   </nav>
-  <div class="sidebar-foot">ZTA Transportation LLC</div>
+  <div class="sidebar-foot">NEXUS<strong>v1.0 &middot; Settlements</strong></div>
 </aside>
 
 <!-- MAIN -->
@@ -431,7 +413,7 @@ async function initApp() {
   setLastWeek();
   try {
     const [trucks, drivers] = await Promise.all([
-      sbFetch('trucks', `org_id=eq.${ORG_ID}&status=eq.active&select=id,unit,owner,driver,driver_type,ded,truck_payment`),
+      sbFetch('trucks', `org_id=eq.${ORG_ID}&status=eq.active&select=id,unit,plate,owner,driver,driver_type,ded,truck_payment`),
       sbFetch('drivers', `org_id=eq.${ORG_ID}&status=eq.active&select=id,first,last,type,pay_rate,truck,company`),
     ]);
     S.trucks  = trucks;
@@ -553,13 +535,15 @@ function storeFile(data, name, hint) {
   if (!data || !data.length) { toast('Empty file: ' + name); return; }
   const cols = Object.keys(data[0]).map(k=>k.toLowerCase()).join(',');
 
-  // Auto-detect type
-  // Invoice MUST be checked first — it also contains 'trip id' column
+  // Auto-detect type — order matters!
+  // Invoice first — also contains 'trip id' column
   const isInvoice = cols.includes('invoice number') || cols.includes('gross pay') || cols.includes('item type');
-  // Trips: must have tractor vehicle id OR driver name (not just trip id)
-  const isTrips   = !isInvoice && (cols.includes('tractor vehicle id') || cols.includes('driver name'));
-  const isEZPass  = !isInvoice && !isTrips && (cols.includes('tag id') || (cols.includes('posting date') && cols.includes('amount')));
-  const isFuel    = !isInvoice && !isTrips && !isEZPass && (cols.includes('card #') || (cols.includes('tran date') && cols.includes('amt')));
+  // Fuel second — has 'card #' + 'tran date', also has 'driver name' which would confuse Trips detector
+  const isFuel    = !isInvoice && (cols.includes('card #') || (cols.includes('tran date') && cols.includes('amt')));
+  // EZPass: tag id or posting date + amount
+  const isEZPass  = !isInvoice && !isFuel && (cols.includes('tag id') || (cols.includes('posting date') && cols.includes('amount')));
+  // Trips: must have tractor vehicle id or driver name (and not be fuel/ezpass)
+  const isTrips   = !isInvoice && !isFuel && !isEZPass && (cols.includes('tractor vehicle id') || cols.includes('driver name'));
 
   const detected = isInvoice ? 'invoice' : isTrips ? 'trips' : isEZPass ? 'ezpass' : isFuel ? 'fuel' : hint;
 
@@ -635,20 +619,22 @@ function parseInvoice(rows) {
 }
 
 function parseEZPass(rows) {
-  // Group tolls by TAG ID (normalised to digits only)
-  // Amount format: ($4.75) = positive charge; $4.75 = credit (rare)
   const map = {};
   const pFrom = document.getElementById('period-from').value;
   const pTo   = document.getElementById('period-to').value;
+  console.log('[EZPass] period:', pFrom, '->', pTo);
+  console.log('[EZPass] columns:', Object.keys(rows[0] || {}));
+  console.log('[EZPass] row0:', rows[0]);
   rows.forEach(r => {
-    const tagRaw = str(r['TAG ID'] || r['Tag ID'] || r['tag_id'] || '');
-    const tag    = tagRaw.replace(/\D/g,''); // digits only
+    const tagRaw = str(r['TAG ID'] || r['Tag ID'] || r['tag_id'] || r['TagID'] || '');
+    const tag    = tagRaw.replace(/\D/g,'');
     if (!tag) return;
-
-    const dateRaw = str(r['Posting Date'] || r['Exit Date'] || r['posting_date'] || '');
+    const dateRaw = str(r['Exit Date'] || r['exit_date'] || r['Posting Date'] || r['posting_date'] || '');
     const date    = normalizeDate(dateRaw);
-    if (pFrom && pTo && date && (date < pFrom || date > pTo)) return; // filter by period
-
+    if (pFrom && pTo && date && (date < pFrom || date > pTo)) {
+      console.log('[EZPass] filtered out:', tag, date);
+      return;
+    }
     const amtRaw = str(r['Amount'] || r['amount'] || '0');
     let amt = 0;
     if (amtRaw.startsWith('(') && amtRaw.endsWith(')')) {
@@ -658,6 +644,7 @@ function parseEZPass(rows) {
     }
     map[tag] = (map[tag] || 0) + amt;
   });
+  console.log('[EZPass] map:', map);
   return map;
 }
 
@@ -683,7 +670,7 @@ function parseFuel(rows) {
 // ══════════════════════════════════════════════════════════════════════
 // STEP 1 → STEP 2: PROCESS & MATCH
 // ══════════════════════════════════════════════════════════════════════
-function processStep1() {
+async function processStep1() {
   if (!S.trips || !S.invoice) { toast('Upload required files first'); return; }
   try {
 
@@ -706,17 +693,22 @@ function processStep1() {
   });
 
   // Build assigns: enrich with Supabase data
-  S.assigns = Object.values(byTruck).map(g => {
-    const truckObj  = S.trucks.find(t => t.unit === g.truck) || null;
+  S.assigns = Object.values(byTruck).map((g, idx) => {
+    // Match driver by name from Trips CSV
     const driverObj = S.drivers.find(d =>
-      d.truck === g.truck ||
       (d.first + ' ' + d.last).toLowerCase() === g.driver.toLowerCase()
     ) || null;
+    // Get truck from driver's assigned truck (unit), or fallback to plate match
+    const truckObj = driverObj
+      ? S.trucks.find(t => t.unit === driverObj.truck || t.plate === driverObj.truck) || null
+      : S.trucks.find(t => t.plate === g.truck || t.unit === g.truck) || null;
 
     const displayLoads = buildDisplayLoads(g.loads, tourByTrip, invByLoad);
     const gross = displayLoads.reduce((a,l) => a + l.gross, 0);
 
+    const settlId = String(idx + 1).padStart(4,'0');
     return {
+      settlId,
       truck:      g.truck,
       truckObj,
       driverObj,
@@ -878,11 +870,14 @@ function calcSettlement(assign) {
   // Deductions from truck's ded JSONB
   const ded = (truck && truck.ded) ? (typeof truck.ded === 'string' ? JSON.parse(truck.ded) : truck.ded) : {};
 
+  console.log('[Settlement]', assign.driverName, '| truck:', truck?.unit, '| ded.ezpass:', ded.ezpass, '| S.ezpass:', S.ezpass);
+
   // EZ Pass: match normalised TAG ID
   let ezpassAmt = 0;
   if (S.ezpass && ded.ezpass && ded.ezpass.on && ded.ezpass.id) {
     const tagNorm = String(ded.ezpass.id).replace(/\D/g,'');
     ezpassAmt = S.ezpass[tagNorm] || 0;
+    console.log('[EZPass match]', assign.driverName, '| tagNorm:', tagNorm, '| found:', ezpassAmt);
   }
 
   // Fuel: match Card #
@@ -994,7 +989,7 @@ function buildSettleCard(a, i, period) {
           ${driverName}
           <span class="type-badge ${badgeCls}" style="margin-left:8px;font-size:11px">${dTypeLabel}</span>
         </div>
-        <div class="sc-meta">Truck ${a.truck} · ${a.loads.length} loads · ${Math.round(a.miles).toLocaleString()} mi · ${period}</div>
+        <div class="sc-meta"><span style="font-family:var(--mono);color:var(--blue);font-weight:700">#${a.settlId}</span> · Truck ${a.truck} · ${a.loads.length} loads · ${Math.round(a.miles).toLocaleString()} mi · ${period}</div>
       </div>
       <div class="sc-right">
         <div>
@@ -1142,60 +1137,78 @@ function printSettlement(i) {
 
   const loadsRows = a.loads.map(l =>
     `<tr>
-      <td style="font-family:monospace;font-size:11px">${l.id}${l.type==='tour'?' (Tour×'+l.legs.length+')':''}</td>
-      <td style="font-size:11px;color:#888">${l.date||''}</td>
-      <td style="font-size:12px">${fc(l.origin)} → ${fc(l.destination)}</td>
-      <td style="text-align:right;font-family:monospace">${Math.round(l.miles)}</td>
-      <td style="text-align:right;font-family:monospace;color:#059669;font-weight:600">$${fmt(l.gross)}</td>
+      <td style="color:#64748B">${l.id}${l.type==='tour'?' <span style="color:#1A56DB;font-weight:600">Tour×'+l.legs.length+'</span>':''}</td>
+      <td style="color:#94A3B8">${l.date||''}</td>
+      <td>${fc(l.origin)} → ${fc(l.destination)}</td>
+      <td style="text-align:right;color:#64748B">${Math.round(l.miles)}</td>
+      <td style="text-align:right;font-weight:700;color:#059669">$${fmt(l.gross)}</td>
     </tr>`
   ).join('');
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
-    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:32px;color:#0D1829;font-size:13px}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:3px solid #0D1829;margin-bottom:20px}
-    .co-name{font-size:22px;font-weight:800;color:#0D1829}
-    .co-info{font-size:11px;color:#888;margin-top:5px;line-height:1.7}
-    .doc-label{font-size:28px;font-weight:800;color:#0D1829;text-align:right}
-    .doc-sub{font-size:12px;color:#888;text-align:right;margin-top:4px}
-    .driver-block{background:#F4F6FA;border-radius:8px;padding:12px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
-    .driver-name{font-size:16px;font-weight:700}
-    .driver-meta{font-size:11px;color:#888;margin-top:3px}
-    .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#E0E7FF;color:#3730A3}
-    .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#888;margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid #E2E8F0}
+    *{box-sizing:border-box}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:32px;color:#0D1829;font-size:13px;line-height:1.5}
+    /* HEADER */
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #0D1829;margin-bottom:24px}
+    .header-left{flex:1}
+    .header-right{text-align:right;min-width:190px}
+    .co-name{font-size:13px;font-weight:700;color:#0D1829;margin-bottom:5px}
+    .co-info{font-size:13px;color:#64748B;line-height:1.8}
+    .doc-label{font-size:26px;font-weight:800;color:#0D1829;letter-spacing:-0.5px;line-height:1}
+    .doc-label span{font-size:26px;font-weight:800;color:#0D1829}
+    .doc-period{font-size:13px;color:#64748B;margin-top:4px}
+    /* INFO ROWS */
+    .info-block{margin-top:14px;margin-bottom:0}
+    .info-row{display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #F1F5F9}
+    .info-lbl{font-size:13px;font-weight:400;color:#94A3B8;min-width:72px}
+    .info-val{font-size:13px;font-weight:600;color:#0D1829}
+    .badge{padding:2px 9px;border-radius:20px;font-size:13px;font-weight:600;background:#E0E7FF;color:#3730A3}
+    /* SECTIONS */
+    .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94A3B8;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid #E2E8F0}
+    /* LOADS TABLE */
     table{width:100%;border-collapse:collapse}
-    .loads-tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#888;padding:5px 8px;background:#F8F9FA;border-bottom:1px solid #E2E8F0}
-    .loads-tbl td{padding:7px 8px;border-bottom:1px solid #E2E8F0}
-    .loads-tbl tr:last-child td{background:#F4F6FA;font-weight:700}
-    .ded-tbl{width:100%;margin-bottom:4px}
-    .ded-tbl td{padding:5px 0;font-size:13px}
-    .dl{color:#4A5568}.dv{font-family:monospace;text-align:right;font-weight:600}
-    .gross-row td{font-weight:700;font-size:14px;padding-bottom:10px}
-    .net-row{margin-top:12px;padding:12px 0;border-top:3px solid #0D1829;display:flex;justify-content:space-between;align-items:center}
-    .net-label{font-size:16px;font-weight:800}
-    .net-val{font-family:monospace;font-size:26px;font-weight:800;color:#059669}
-    .footer{margin-top:28px;padding-top:12px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;font-size:10px;color:#aaa}
+    .loads-tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94A3B8;padding:4px 8px;background:#F8F9FA;border-bottom:1px solid #E2E8F0;text-align:left}
+    .loads-tbl th:last-child,.loads-tbl td:last-child{text-align:right}
+    .loads-tbl th:nth-child(4),.loads-tbl td:nth-child(4){text-align:right}
+    .loads-tbl td{font-size:11px;padding:5px 8px;border-bottom:1px solid #F1F5F9;color:#0D1829}
+    .loads-tbl tr:last-child td{background:#F4F6FA;font-weight:700;border-bottom:none}
+    /* DEDUCTIONS TABLE */
+    .ded-tbl{width:100%;margin-bottom:4px;border-collapse:collapse}
+    .ded-tbl td{font-size:13px;padding:5px 0;color:#0D1829;border-bottom:1px solid #F8F9FA}
+    .dl{color:#4A5568;font-weight:400}
+    .dv{text-align:right;font-weight:600}
+    .dv.red{color:#DC2626}
+    .dv.grn{color:#059669}
+    .gross-row td{font-weight:700;border-bottom:2px solid #E2E8F0;padding-bottom:8px;margin-bottom:4px}
+    /* NET */
+    .net-row{margin-top:14px;padding:14px 0;border-top:3px solid #0D1829;display:flex;justify-content:space-between;align-items:center}
+    .net-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#0D1829}
+    .net-val{font-size:26px;font-weight:800;color:#059669}
+    /* FOOTER */
+    .footer{margin-top:24px;padding-top:10px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94A3B8}
+    .footer-inv{font-size:10px;color:#CBD5E1;font-family:monospace}
   </style></head>
   <body>
     <div class="header">
-      <div>
+      <div class="header-left">
+        <div class="doc-label">SETTLEMENT <span style="font-size:18px;color:#1A56DB">#${a.settlId}</span></div>
+        <div class="doc-period">${periodLabel}</div>
+        <div class="info-block">
+          <div class="info-row"><span class="info-lbl">Unit</span><span class="info-val">${truck ? truck.unit : a.truck}</span></div>
+          <div class="info-row"><span class="info-lbl">Driver</span><span class="info-val">${driverName}</span></div>
+          <div class="info-row"><span class="info-lbl">Status</span><span class="info-val"><span class="badge">${dTypeLabel}${s.payRate&&s.payRate!==100?' · '+s.payRate+'%':''}</span></span></div>
+          ${driver&&driver.company?'<div class="info-row"><span class="info-lbl">Company</span><span class="info-val">'+driver.company+'</span></div>':''}
+        </div>
+      </div>
+      <div class="header-right">
         <div class="co-name">ZTA Transportation LLC</div>
-        <div class="co-info">2100 Grant Ave, Apt 10 · Philadelphia, PA 19115<br>272-372-0000 · info@ztatrans.com</div>
-      </div>
-      <div>
-        <div class="doc-label">SETTLEMENT</div>
-        <div class="doc-sub">${periodLabel}</div>
-      </div>
-    </div>
-
-    <div class="driver-block">
-      <div>
-        <div class="driver-name">${driverName}</div>
-        <div class="driver-meta">Truck ${a.truck}${driver&&driver.company?' · '+driver.company:''}</div>
-      </div>
-      <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        <span class="badge">${dTypeLabel}${s.payRate&&s.payRate!==100?' · '+s.payRate+'%':''}</span>
-        <span style="font-size:11px;color:#888">Invoice: ${S.invoice.invoice_id||'—'}</span>
+        <div class="co-info">
+          2100 Grant Ave, Apt 10<br>
+          Philadelphia, PA 19115<br>
+          272-372-0000<br>
+          info@ztatrans.com
+        </div>
       </div>
     </div>
 
@@ -1234,11 +1247,12 @@ function printSettlement(i) {
     </div>
 
     <div class="footer">
-      <span>Generated by Nexus TMS · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span>
-      <span>ZTA Transportation LLC</span>
+      <span>Generated by NEXUS · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span>
+      <span class="footer-inv">${S.invoice.invoice_id ? 'Invoice: '+S.invoice.invoice_id : ''}</span>
     </div>
   </body></html>`;
 
+  const filename = a.settlId + '-' + (a.driverName||'settlement').replace(/\s+/g,'-');
   let iframe = document.getElementById('print-frame');
   if (!iframe) {
     iframe = document.createElement('iframe');
@@ -1246,7 +1260,13 @@ function printSettlement(i) {
     iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:850px;height:1100px;border:none;visibility:hidden';
     document.body.appendChild(iframe);
   }
-  iframe.onload = () => { try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch(e) { toast('Print failed: '+e.message); } };
+  iframe.onload = () => {
+    try {
+      iframe.contentDocument.title = filename;
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch(e) { toast('Print failed: '+e.message); }
+  };
   const d = iframe.contentDocument || iframe.contentWindow.document;
   d.open(); d.write(html); d.close();
 }

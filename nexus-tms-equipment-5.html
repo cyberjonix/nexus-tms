@@ -233,14 +233,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
 <aside class="sidebar">
   <div class="logo-area">
-    <div class="logo-mark">NEXUS TMS</div>
+    <div class="logo-mark">NEXUS</div>
     <div class="logo-sub">ZTA Transportation LLC</div>
   </div>
   <nav class="nav">
     <div class="nav-section">
       <div class="nav-section-label">Operations</div>
-      <a class="nav-item" href="nexus-tms-settlement-2.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12V5l6-3 6 3v7"/><rect x="5" y="8" width="6" height="4"/></svg>Settlements
+      <a class="nav-item" href="nexus-tms-settlement-v3.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
       </a>
     </div>
     <div class="nav-section">
@@ -257,7 +257,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="db-dot" id="db-dot"></div>
     <span id="db-status">Connecting...</span>
   </div>
-  <div class="sidebar-foot">Nexus TMS<strong>v0.5 &middot; Equipment</strong></div>
+  <div class="sidebar-foot">NEXUS<strong>v1.0 &middot; Equipment</strong></div>
 </aside>
 
 <div class="main">
@@ -624,7 +624,7 @@ function renderTruckDetail(t) {
     return `<div class="ded-flag-row ${dd.on ? 'active' : ''}">
       <label class="ded-toggle"><input type="checkbox" ${dd.on ? 'checked' : ''} disabled><span class="ded-slider"></span></label>
       <div class="ded-flag-info">
-        <div class="ded-flag-name">${d.icon} ${d.label}</div>
+        <div class="ded-flag-name">${d.label}</div>
         <div class="ded-flag-id ${dd.id ? 'set' : ''}">${dd.id || (dd.on && dd.amt ? '$' + fmtAmt(dd.amt) : 'No ID set')}</div>
       </div>
     </div>`;
@@ -646,7 +646,7 @@ function renderTruckDetail(t) {
     return `<div class="ded-flag-row ${dd.on ? 'active' : ''}">
       <label class="ded-toggle"><input type="checkbox" ${dd.on ? 'checked' : ''} disabled><span class="ded-slider"></span></label>
       <div class="ded-flag-info">
-        <div class="ded-flag-name">${d.icon} ${d.label}</div>
+        <div class="ded-flag-name">${d.label}</div>
         <div class="ded-flag-id ${(dd.amt||dd.pct) ? 'set' : ''}">${valLabel}</div>
       </div>
     </div>`;
