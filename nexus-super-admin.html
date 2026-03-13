@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -357,7 +360,10 @@ function renderOrgs(orgs) {
         </div>
       </div>
       <div class="oc-actions">
-        <button class="btn btn-primary btn-sm" onclick="enterOrg('${o.id}','${o.name}','${o.slug||''}','${o.email||''}','${o.password||''}')">
+        <input type="password" id="pw-${o.id}" placeholder="Auth password" class="auth-input"
+          style="height:30px;font-size:12px;margin-bottom:6px;width:100%"
+          onkeydown="if(event.key==='Enter')enterOrgFromCard('${o.id}','${o.name}','${o.email||''}')">
+        <button class="btn btn-primary btn-sm" onclick="enterOrgFromCard('${o.id}','${o.name}','${o.email||''}')">
           <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="2"><path d="M6 3l6 5-6 5"/></svg>
           Enter
         </button>
@@ -375,6 +381,12 @@ function renderOrgs(orgs) {
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────────────
+function enterOrgFromCard(id, name, email) {
+  const pw = document.getElementById('pw-' + id)?.value || '';
+  if (!pw) { toast('Enter password first'); return; }
+  enterOrg(id, name, '', email, pw);
+}
+
 async function enterOrg(id, name, slug, email, password) {
   // Admin enters an org by signing in with the org's credentials
   try {

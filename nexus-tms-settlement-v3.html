@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -868,7 +871,7 @@ async function processStep1() {
 
   // Group loads by truck
   // ── DTH helper: find which truck a driver was on for a given date ────
-  function dthTruckForDriver(driverName, dateStr) {
+  const dthTruckForDriver = (driverName, dateStr) => {
     if (!dateStr || !S.dth.length) return null;
     const d = new Date(dateStr);
     return S.dth.find(h => {
@@ -877,7 +880,7 @@ async function processStep1() {
       const to   = h.date_to ? new Date(h.date_to) : new Date('9999-12-31');
       return d >= from && d <= to;
     }) || null;
-  }
+  };
 
   // ── Build assignments, splitting by truck if driver switched mid-week ─
   // Key = truck_unit + '|' + driver_name so same driver on 2 trucks = 2 statements
@@ -1118,16 +1121,18 @@ function generateSettlements() {
   saveSettlementsToDb();
 }
 
+// Deterministic UUID — upsert deduplication
+async function stableUUID(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  const h = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-${((parseInt(h.slice(16,18),16)&0x3f)|0x80).toString(16)}${h.slice(18,20)}-${h.slice(20,32)}`;
+}
+
 async function saveSettlementsToDb() {
   const pFrom = document.getElementById('period-from').value;
   const pTo   = document.getElementById('period-to').value;
 
-  // Deterministic ID: org + settle_id + week_start + truck — upsert overwrites on re-generate
-  async function stableUUID(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    const h = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
-    return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-${((parseInt(h.slice(16,18),16)&0x3f)|0x80).toString(16)}${h.slice(18,20)}-${h.slice(20,32)}`;
-  }
+
 
   const rows = await Promise.all(S.assigns.map(async a => {
     const s    = calcSettlement(a);
