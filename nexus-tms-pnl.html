@@ -186,11 +186,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
 
-// ── Runtime auth state (populated after login) ────────────────────────
+// ── Runtime auth state ─────────────────────────────────────────────────
 let _jwt = null;
 let _orgId = null;
 
-// ── Auth headers ──────────────────────────────────────────────────────
 function authHeaders(extra) {
   return Object.assign({
     'apikey': SUPABASE_KEY,
@@ -199,7 +198,6 @@ function authHeaders(extra) {
   }, extra || {});
 }
 
-// ── Supabase Auth: sign in with email+password ────────────────────────
 async function signIn(email, password) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -211,7 +209,6 @@ async function signIn(email, password) {
   return d;
 }
 
-// ── Restore session from sessionStorage ───────────────────────────────
 async function restoreSession() {
   const stored = sessionStorage.getItem('nx-session');
   if (!stored) return false;
@@ -224,76 +221,204 @@ async function restoreSession() {
   } catch(e) { return false; }
 }
 
-// ── Overhead / dispatch from sessionStorage ───────────────────────────
-
-// ── Session restore / auth guard ─────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  const ok = await restoreSession();
-  if (!ok) { window.location.href = 'nexus-tms-settlement-v3.html'; return; }
-  load();
-});
-// overhead settings from Account page ($/week = monthly/4)
+// ── Overhead / dispatch from sessionStorage ────────────────────────────
 const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
 const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
 const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
 const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 
-// $150/month overhead for POO/OO trucks, prorated per settlement week
-// $100 safety + $50 accounting = $150/month / 4 weeks = $37.50/week
-// WEEKLY_OVERHEAD from config above
-
-
-const $=id=>document.getElementById(id);
-const fmt=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-const D=n=>'$'+fmt(n);
+// ── Helpers ────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const D = n => '$' + fmt(n);
 let toastT;
 function toast(msg,err){const el=$('toast-el');el.textContent=msg;el.style.background=err?'var(--red)':'#0D1829';el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),3000);}
 
-// ── Supabase helpers (use JWT via authHeaders) ────────────────────────
-async function sbFetch(table, params) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
-  if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
+async function sbFetch(table,query){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query||''}`,{headers:authHeaders()});
+  if(!r.ok)throw new Error(await r.text());
   return r.json();
 }
-async function sbUpsert(table, payload) {
-  const body = Array.isArray(payload) ? payload : [payload];
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: authHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`Upsert ${table}: ${r.status}`);
-}
-async function sbInsert(table, payload) {
-  const body = Array.isArray(payload) ? payload : [payload];
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: authHeaders({ 'Prefer': 'return=representation' }),
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`Insert ${table}: ${r.status}`);
-  return r.json();
-}
-async function sbPatch(table, query, body) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-    method: 'PATCH',
-    headers: authHeaders({ 'Prefer': 'return=minimal' }),
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`Patch ${table}: ${r.status}`);
-}
-async function sbDelete(table, query) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-    method: 'DELETE', headers: authHeaders()
-  });
-  if (!r.ok) throw new Error(`Delete ${table}: ${r.status}`);
-}
-const db = { upsert: sbUpsert };
 
+// ── Auth startup ───────────────────────────────────────────────────────
+(async function startup(){
+  const ok = await restoreSession();
+  if (!ok) {
+    // Fallback: check old nxauth session key
+    if(sessionStorage.getItem('nxauth')==='1'){
+      _orgId = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+    } else {
+      window.location.href='nexus-tms-settlement-v3.html';
+      return;
+    }
+  }
+  $('conn-status').textContent='Connected';
+  setPreset('all', document.querySelector('.period-tab.active'));
+})();
+
+// ── Presets ────────────────────────────────────────────────────────────
+function setPreset(type,el){
+  document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const now=new Date();
+  let from,to=now.toISOString().slice(0,10);
+  if(type==='month'){from=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);}
+  else if(type==='quarter'){from=new Date(now.getFullYear(),Math.floor(now.getMonth()/3)*3,1).toISOString().slice(0,10);}
+  else{from='2020-01-01';to='2099-12-31';}
+  $('date-from').value=from;
+  $('date-to').value=to;
+  load();
+}
+function clearActive(){document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));}
+
+// ── P&L calculation ────────────────────────────────────────────────────
+function calcPnl(settlements){
+  const trucks={};
+  settlements.forEach(s=>{
+    const key=s.truck_unit||'UNKNOWN';
+    if(!trucks[key]) trucks[key]={unit:key,driverName:s.driver_name,driverType:s.driver_type,weeks:[],totGross:0,totDeds:0,totDriverPay:0,totOverhead:0,totProfit:0,dedAgg:{}};
+    const t=trucks[key];
+    const gross     = Number(s.gross||0);
+    const driverPay = Number(s.driver_pay_amt||0);
+    const dedTotal  = Number(s.deductions_total||0);
+    const type      = (s.driver_type||'P').toUpperCase();
+    const netPay    = Number(s.net_pay||0);
+
+    // Parse deduction items
+    const deds=s.deductions||{};
+    Object.entries(deds).forEach(([k,v])=>{
+      const amt=Number(v&&typeof v==='object'?v.amt:v)||0;
+      if(amt>0) t.dedAgg[k]=(t.dedAgg[k]||0)+amt;
+    });
+
+    // Company revenue by type
+    let companyRev=0,overhead=0;
+    if(type==='P'){
+      companyRev=0; overhead=0;
+    } else if(type==='POO'||type==='OO'){
+      companyRev=gross-netPay-dedTotal;
+      overhead=WEEKLY_OVERHEAD;
+    } else if(type==='CT'){
+      companyRev=gross-driverPay-dedTotal;
+      overhead=0;
+    }
+    const profit=companyRev-overhead;
+
+    t.weeks.push({settleId:s.settle_id,weekStart:s.week_start,weekEnd:s.week_end,gross,driverPay,dedTotal,companyRev,overhead,profit,type});
+    t.totGross     +=gross;
+    t.totDeds      +=dedTotal;
+    t.totDriverPay +=driverPay;
+    t.totOverhead  +=overhead;
+    t.totProfit    +=profit;
+  });
+  return Object.values(trucks).sort((a,b)=>b.totGross-a.totGross);
+}
+
+// ── KPI render ─────────────────────────────────────────────────────────
+function renderKPIs(trucks){
+  const g=trucks.reduce((a,t)=>a+t.totGross,0);
+  const d=trucks.reduce((a,t)=>a+t.totDeds,0);
+  const p=trucks.reduce((a,t)=>a+t.totDriverPay,0);
+  const pr=trucks.reduce((a,t)=>a+t.totProfit,0);
+  $('kpi-gross').textContent=D(g);
+  $('kpi-deds').textContent=D(d);
+  $('kpi-paid').textContent=D(p);
+  $('kpi-profit').textContent=D(pr);
+  $('kpi-profit').className='kpi-val '+(pr>=0?'green':'red');
+}
+
+// ── Trucks render ──────────────────────────────────────────────────────
+function renderTrucks(trucks){
+  if(!trucks.length){
+    $('trucks-container').innerHTML='<div class="empty"><div class="empty-icon">\ud83d\udcca</div><div class="empty-title">No settlements found</div><p>Adjust the date range or generate settlements first</p></div>';
+    return;
+  }
+  $('trucks-container').innerHTML='<div class="trucks-grid">'+trucks.map((t,i)=>{
+    const type=(t.driverType||'P').toUpperCase();
+    const pc=t.totProfit>0?'green':t.totProfit<0?'red':'dim';
+
+    const dedRows=Object.entries(t.dedAgg).filter(([,v])=>v>0)
+      .map(([k,v])=>`<div class="bk-row"><span style="text-transform:capitalize">${k}</span><span class="amt neg">-${D(v)}</span></div>`).join('')
+      ||'<div class="bk-row" style="color:var(--text3)"><span>No deductions</span><span>\u2014</span></div>';
+
+    let compRows='';
+    if(type==='P'){
+      compRows='<div class="bk-row" style="color:var(--text3)"><span>Partner \u2014 company keeps nothing</span><span class="amt dim">$0.00</span></div>';
+    } else if(type==='POO'||type==='OO'){
+      const totalFee=t.totProfit+t.totOverhead;
+      const safetyTotal=t.weeks.length*25;
+      const accountingTotal=t.weeks.length*12.5;
+      compRows=`<div class="bk-row"><span>Company Fee (dispatch cut)</span><span class="amt pos">${D(totalFee)}</span></div>
+        <div class="bk-row"><span>Safety ($100/mo)</span><span class="amt neg">-${D(safetyTotal)}</span></div>
+        <div class="bk-row"><span>Accounting ($50/mo)</span><span class="amt neg">-${D(accountingTotal)}</span></div>
+        <div class="bk-row total"><span>Net Profit</span><span class="amt ${pc}">${D(t.totProfit)}</span></div>`;
+    } else if(type==='CT'){
+      compRows=`<div class="bk-row"><span>Gross Revenue</span><span class="amt pos">${D(t.totGross)}</span></div>
+        <div class="bk-row"><span>Driver Pay</span><span class="amt neg">-${D(t.totDriverPay)}</span></div>
+        <div class="bk-row"><span>Deductions</span><span class="amt neg">-${D(t.totDeds)}</span></div>
+        <div class="bk-row total"><span>Net Profit</span><span class="amt ${pc}">${D(t.totProfit)}</span></div>`;
+    }
+
+    const weeks=[...t.weeks].sort((a,b)=>a.weekStart>b.weekStart?1:-1);
+    const maxW=Math.max(...weeks.map(w=>Math.abs(w.profit)),1);
+    const weekRows=weeks.slice(-10).map(w=>{
+      const pct=Math.abs(w.profit)/maxW*100;
+      const pos=w.profit>=0;
+      return `<div class="week-row">
+        <div class="week-label">${w.weekStart||''} \u2192 ${(w.weekEnd||'').slice(5)}</div>
+        <div class="week-bar-wrap"><div class="week-bar${pos?'':' loss'}" style="width:${pct}%"></div></div>
+        <div class="week-gross">${D(w.gross)}</div>
+        <div class="week-profit ${pos?'pos':'neg'}">${D(w.profit)}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="truck-card">
+      <div class="tc-header" onclick="toggle(${i})">
+        <div class="tc-badge badge-${type}">${type}</div>
+        <div class="tc-driver">${t.unit}<span>${t.driverName||'\u2014'}</span></div>
+        <div class="tc-col"><div class="tc-col-label">Gross</div><div class="tc-col-val blue">${D(t.totGross)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Deductions</div><div class="tc-col-val red">-${D(t.totDeds)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Paid Out</div><div class="tc-col-val">-${D(t.totDriverPay)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Overhead</div><div class="tc-col-val dim">-${D(t.totOverhead)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Profit</div><div class="tc-col-val ${pc}">${D(t.totProfit)}</div></div>
+        <div class="tc-toggle" id="tog-${i}">\u25b8</div>
+      </div>
+      <div class="tc-body" id="bdy-${i}">
+        <div class="breakdown">
+          <div class="bk-section">
+            <div class="bk-title">Revenue</div>
+            <div class="bk-row"><span>Gross Earned</span><span class="amt pos">${D(t.totGross)}</span></div>
+            <div class="bk-row total"><span>Total In</span><span class="amt pos">${D(t.totGross)}</span></div>
+          </div>
+          <div class="bk-section">
+            <div class="bk-title">Deductions \u2192 Providers</div>
+            ${dedRows}
+          </div>
+          <div class="bk-section">
+            <div class="bk-title">Company P&L</div>
+            ${compRows}
+          </div>
+        </div>
+        ${weeks.length>0?`<div class="weeks-wrap">
+          <div class="weeks-title">Weekly Breakdown (last ${Math.min(weeks.length,10)} weeks)</div>
+          ${weekRows}
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function toggle(i){
+  const b=$('bdy-'+i),tg=$('tog-'+i);
+  const open=b.classList.toggle('open');
+  tg.textContent=open?'\u25be':'\u25b8';
+}
+
+// ── Load data ──────────────────────────────────────────────────────────
 async function load(){
-  $('trucks-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  $('trucks-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading\u2026</div>';
   const from=$('date-from').value, to=$('date-to').value, type=$('filter-type').value;
-  let q=`org_id=eq.${_orgId}&is_ct_driver_stmt=eq.false&select=settle_id,week_start,week_end,driver_name,driver_type,truck_unit,gross,net_pay,dispatch_amt,deductions_total,driver_pay_amt,deductions,is_ct_driver_stmt`;
+  let q=`org_id=eq.${_orgId}&is_ct_driver_stmt=eq.false&select=settle_id,week_start,week_end,driver_name,driver_type,truck_unit,gross,net_pay,dispatch_amt,deductions_total,driver_pay_amt,deductions`;
   if(from) q+=`&week_start=gte.${from}`;
   if(to)   q+=`&week_end=lte.${to}`;
   if(type) q+=`&driver_type=eq.${type}`;
@@ -306,12 +431,10 @@ async function load(){
     renderTrucks(trucks);
   }catch(e){
     toast('Error: '+e.message,true);
-    $('trucks-container').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">'+e.message+'</div></div>';
+    $('trucks-container').innerHTML='<div class="empty"><div class="empty-icon">\u26a0\ufe0f</div><div class="empty-title">'+e.message+'</div></div>';
   }
 }
 
-$('conn-status').textContent='Connected';
-setPreset('all', document.querySelector('.period-tab.active'));
 </script>
 </body>
 </html>
