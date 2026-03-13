@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXUS — Account</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;
@@ -154,10 +158,56 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <script>
 const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
-const PASS = 'zta2026';
+
+// ── Runtime auth state (populated after login) ────────────────────────
+let _jwt = null;
+let _orgId = null;
+
+// ── Auth headers ──────────────────────────────────────────────────────
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// ── Supabase Auth: sign in with email+password ────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+
+// ── Restore session from sessionStorage ───────────────────────────────
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
+    });
+    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Overhead / dispatch from sessionStorage ───────────────────────────
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 
 // Determine org_id — from sessionStorage (if entered via admin) or hardcoded fallback
-const ORG_ID = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
 
 const $ = id => document.getElementById(id);
 let toastT, currentOrg = null;
@@ -172,41 +222,59 @@ function toast(msg, err) {
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────
-(function auth() {
-  const stored = sessionStorage.getItem('nxauth');
-  // Also allow admin session
-  const isAdmin = sessionStorage.getItem('nexus-admin') === '1';
-  if (!isAdmin && stored !== PASS) {
-    const p = prompt('Access code:');
-    if (!p) { location.href = 'nexus-tms-settlement-v3.html'; return; }
-    sessionStorage.setItem('nxauth', p);
-  }
-})();
+// ── Session restore / auth guard ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Super-admin bypass
+  if (sessionStorage.getItem('nexus-admin') === '1') { loadAccount(); return; }
+  const ok = await restoreSession();
+  if (!ok) { window.location.href = 'nexus-tms-settlement-v3.html'; return; }
+  loadAccount();
+});
 
-async function sbFetch(table, query) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
-  });
-  if (!r.ok) throw new Error(await r.text());
+// ── Supabase helpers (use JWT via authHeaders) ────────────────────────
+async function sbFetch(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
   return r.json();
 }
-
+async function sbUpsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Upsert ${table}: ${r.status}`);
+}
+async function sbInsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'return=representation' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Insert ${table}: ${r.status}`);
+  return r.json();
+}
 async function sbPatch(table, query, body) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
     method: 'PATCH',
-    headers: {
-      'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-    },
+    headers: authHeaders({ 'Prefer': 'return=minimal' }),
     body: JSON.stringify(body)
   });
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) throw new Error(`Patch ${table}: ${r.status}`);
 }
+async function sbDelete(table, query) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'DELETE', headers: authHeaders()
+  });
+  if (!r.ok) throw new Error(`Delete ${table}: ${r.status}`);
+}
+const db = { upsert: sbUpsert };
 
-// ── LOAD ──────────────────────────────────────────────────────────────
 async function loadAccount() {
   try {
-    const orgs = await sbFetch('organizations', `id=eq.${ORG_ID}&select=*`);
+    const orgs = await sbFetch('organizations', `id=eq.${_orgId}&select=*`);
     if (!orgs.length) { $('content').innerHTML = '<div class="loading">Organization not found</div>'; return; }
     currentOrg = orgs[0];
     $('sidebar-org-name').textContent = currentOrg.name;
@@ -351,7 +419,7 @@ async function saveCompanyInfo() {
   const address = $('f-address').value.trim();
   if (!name) { toast('Company name is required', true); return; }
   try {
-    await sbPatch('organizations', `id=eq.${ORG_ID}`, { name, email, phone, address });
+    await sbPatch('organizations', `id=eq.${_orgId}`, { name, email, phone, address });
     currentOrg = { ...currentOrg, name, email, phone, address };
     $('sidebar-org-name').textContent = name;
     $('topbar-org-name').textContent  = name;
@@ -371,7 +439,7 @@ async function saveStatementSettings() {
     sessionStorage.setItem('nexus-safety', safety);
     sessionStorage.setItem('nexus-accounting', accounting);
     // Try to save to org settings in DB if settings column exists
-    await sbPatch('organizations', `id=eq.${ORG_ID}`, {
+    await sbPatch('organizations', `id=eq.${_orgId}`, {
       settings: { dispatch_pct: dispatch, safety_monthly: safety, accounting_monthly: accounting }
     }).catch(() => {}); // ignore if column doesn't exist yet
     toast('✓ Statement settings saved');
@@ -381,20 +449,26 @@ async function saveStatementSettings() {
 async function changePassword() {
   const np = $('f-pass-new').value;
   const cp = $('f-pass-confirm').value;
-  if (!np) { toast('Enter a new access code', true); return; }
-  if (np !== cp) { toast('Codes do not match', true); return; }
-  if (np.length < 6) { toast('Code must be at least 6 characters', true); return; }
+  if (!np) { toast('Enter a new password', true); return; }
+  if (np !== cp) { toast('Passwords do not match', true); return; }
+  if (np.length < 6) { toast('Minimum 6 characters', true); return; }
   try {
-    await sbPatch('organizations', `id=eq.${ORG_ID}`, { password: np });
-    sessionStorage.setItem('nxauth', np);
+    // Update password via Supabase Auth
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + _jwt,
+                 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: np })
+    });
+    if (!r.ok) throw new Error((await r.json()).msg || 'Update failed');
     $('f-pass-new').value = '';
     $('f-pass-confirm').value = '';
-    toast('✓ Access code updated');
-  } catch(e) { toast('Error: ' + e.message, true); }
+    toast('✓ Password updated');
+  } catch(e) { toast(e.message, true); }
 }
 
 function copyId() {
-  navigator.clipboard.writeText(ORG_ID).then(() => toast('Org ID copied'));
+  navigator.clipboard.writeText(_orgId).then(() => toast('Org ID copied'));
 }
 
 function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }

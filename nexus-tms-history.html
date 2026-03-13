@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXUS — History</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;
@@ -172,10 +176,73 @@ tr:last-child td{border-bottom:none}
 <div class="toast" id="toast-el"></div>
 
 <script>
-const SUPABASE_URL='https://aiokbuzauuadoqrghyic.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
-const ORG_ID='27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+
+// ── Runtime auth state (populated after login) ────────────────────────
+let _jwt = null;
+let _orgId = null;
+
+// ── Auth headers ──────────────────────────────────────────────────────
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// ── Supabase Auth: sign in with email+password ────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+
+// ── Restore session from sessionStorage ───────────────────────────────
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
+    });
+    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Overhead / dispatch from sessionStorage ───────────────────────────
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
+
+// ── Session restore / auth guard ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const ok = await restoreSession();
+  if (!ok) { window.location.href = 'nexus-tms-settlement-v3.html'; return; }
+  loadHistory();
+});
+// org_id — from super-admin session or fallback to ZTA
+const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+// overhead settings from Account page ($/week = monthly/4)
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 let allRows=[],visibleRows=[];
+const PAGE_SIZE=50;
+let page=1,totalPages=1;
 
 async function sbFetch(t,p=''){
   const r=await fetch(`${SUPABASE_URL}/rest/v1/${t}?${p}`,{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
@@ -190,10 +257,15 @@ function fc(s){if(!s)return'—';const p=String(s).split(',');return p[0].trim()
 async function loadHistory(){
   document.getElementById('table-body').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
   try{
-    const rows=await sbFetch('settlements',`org_id=eq.${ORG_ID}&order=created_at.desc&limit=500&select=*`);
+    const rows=await sbFetch('settlements',
+      `org_id=eq.${_orgId}&order=week_start.desc&limit=${PAGE_SIZE}&offset=${(page-1)*PAGE_SIZE}&select=settle_id,week_start,week_end,driver_name,driver_type,truck_unit,gross,net_pay,dispatch_amt,dispatch_pct,deductions_total,driver_pay_amt,driver_pay_pct,status,loads,deductions,manual_adjustments,is_ct_driver_stmt,invoice_id,created_at`
+    );
     allRows=rows;
     populateFilters(rows);
+    totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    page = 1;
     renderTable(rows);
+    renderPagination();
   }catch(e){
     document.getElementById('table-body').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Failed to load</div><p>${e.message}</p></div>`;
   }
@@ -227,6 +299,8 @@ function clearFilters(){
 const TYPE_LABELS={P:'Partner',POO:'Partner OO',OO:'Owner-Op',CT:'Company Truck',Driver:'Driver'};
 
 function renderTable(rows){
+  const paged=rows.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+  rows=paged;
   visibleRows=rows;
   const tG=rows.reduce((a,r)=>a+Number(r.gross||0),0);
   const tN=rows.reduce((a,r)=>a+Number(r.net_pay||0),0);
@@ -264,12 +338,27 @@ function openStatement(idx){
   const r=visibleRows[idx];
   if(!r)return;
   const lastName=(r.driver_name||'Driver').split(' ').pop();
+  const title=`${r.settle_id||'0000'}-${lastName}`;
   document.getElementById('modal-title').textContent=`Settlement #${r.settle_id||'—'} · ${r.driver_name||'—'}`;
   document.getElementById('stmt-iframe').srcdoc=buildStatementHTML(r);
+  // Print
   document.getElementById('stmt-print-btn').onclick=()=>{
     const iw=document.getElementById('stmt-iframe').contentWindow;
-    iw.document.title=`${r.settle_id||'0000'}-${lastName}`;
+    iw.document.title=title;
     iw.print();
+  };
+  // Download PDF — open in new tab then trigger print-to-PDF
+  const dlBtn = document.getElementById('stmt-dl-btn');
+  if(dlBtn) dlBtn.onclick=()=>{
+    const html=buildStatementHTML(r);
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const win=window.open(url,'_blank');
+    win.addEventListener('load',()=>{
+      win.document.title=title;
+      win.print();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+    });
   };
   document.getElementById('stmt-modal').style.display='flex';
 }
@@ -337,7 +426,7 @@ table{width:100%;border-collapse:collapse}
   </div>
   <div class="header-right">
     <div class="co-name">ZTA Transportation LLC</div>
-    <div class="co-info">2100 Grant Ave, Apt 10<br>Philadelphia, PA 19115<br>272-372-0000<br>info@ztatrans.com</div>
+    <div class="co-info">2100 Grant Ave, Apt 10<br>Philadelphia, PA 19115<br>272-372-0000<br>jnson@ya.ru</div>
   </div>
 </div>
 <div class="sec-title">Loads</div>
@@ -382,7 +471,30 @@ const today=new Date(),d30=new Date(today);
 d30.setDate(d30.getDate()-30);
 document.getElementById('f-from').value=d30.toISOString().slice(0,10);
 document.getElementById('f-to').value=today.toISOString().slice(0,10);
-loadHistory();
+function renderPagination(){
+  const el = document.getElementById('pagination');
+  if(!el) return;
+  if(totalPages<=1){el.innerHTML='';return;}
+  const from=(page-1)*PAGE_SIZE+1, to=Math.min(page*PAGE_SIZE, visibleRows.length);
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+      <span>Showing ${from}–${to} of ${visibleRows.length}</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="goPage(${page-1})" ${page<=1?'disabled':''} style="height:28px;padding:0 10px">← Prev</button>
+        <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:var(--text)">${page} / ${totalPages}</span>
+        <button class="btn btn-outline btn-sm" onclick="goPage(${page+1})" ${page>=totalPages?'disabled':''} style="height:28px;padding:0 10px">Next →</button>
+      </div>
+    </div>
+<div id="pagination"></div>`;
+}
+function goPage(p){
+  if(p<1||p>totalPages) return;
+  page=p;
+  renderTable(visibleRows);
+  renderPagination();
+  document.querySelector('.table-wrap')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 </script>
 </body>
 </html>

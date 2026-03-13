@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXUS — Super Admin</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#0A0F1A;--surface:#111827;--surface2:#1A2235;--border:#1E2D45;
@@ -201,6 +205,45 @@ const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
 const ADMIN_PASS = 'Nexus102030$%';
 
+// ── Supabase helpers (super-admin) ───────────────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+async function sbFetch(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
+  return r.json();
+}
+async function sbInsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+               'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Insert ${table}: ${r.status}`);
+  return r.json();
+}
+async function sbPatch(table, query, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY,
+               'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Patch ${table}: ${r.status}`);
+}
+
 const $ = id => document.getElementById(id);
 let toastT;
 function toast(msg, err) {
@@ -276,7 +319,7 @@ async function sbPatch(table, query, body) {
 async function loadOrgs() {
   $('orgs-container').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
   try {
-    const orgs = await sbFetch('organizations', 'order=created_at.desc&select=*');
+    const orgs = await sbFetch('organizations', 'order=created_at.desc&select=id,name,slug,email,phone,address,plan,active,created_at,password');
     $('stat-total').textContent  = orgs.length;
     $('stat-active').textContent = orgs.filter(o => o.active).length;
     renderOrgs(orgs);
@@ -314,7 +357,7 @@ function renderOrgs(orgs) {
         </div>
       </div>
       <div class="oc-actions">
-        <button class="btn btn-primary btn-sm" onclick="enterOrg('${o.id}','${o.name}','${o.slug||''}')">
+        <button class="btn btn-primary btn-sm" onclick="enterOrg('${o.id}','${o.name}','${o.slug||''}','${o.email||''}','${o.password||''}')">
           <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="2"><path d="M6 3l6 5-6 5"/></svg>
           Enter
         </button>
@@ -332,12 +375,22 @@ function renderOrgs(orgs) {
 }
 
 // ── ACTIONS ───────────────────────────────────────────────────────────
-function enterOrg(id, name, slug) {
-  sessionStorage.setItem('nexus-org-id',   id);
-  sessionStorage.setItem('nexus-org-name', name);
-  sessionStorage.setItem('nexus-org-slug', slug);
-  // Redirect to settlements for this org
-  window.location.href = 'nexus-tms-settlement-v3.html';
+async function enterOrg(id, name, slug, email, password) {
+  // Admin enters an org by signing in with the org's credentials
+  try {
+    toast('Signing in as ' + name + '…');
+    const session = await signIn(email || prompt('Org email:'), password || prompt('Org password:'));
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: session.access_token,
+      org_id: id, org_name: name
+    }));
+    sessionStorage.setItem('nexus-org-id',   id);
+    sessionStorage.setItem('nexus-org-name', name);
+    sessionStorage.setItem('nexus-org-slug', slug || '');
+    window.location.href = 'nexus-tms-settlement-v3.html';
+  } catch(e) {
+    toast('Login failed: ' + e.message, true);
+  }
 }
 
 async function toggleActive(id, current) {

@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nexus TMS &mdash; Equipment</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;--border2:#C9D4E3;
@@ -194,79 +198,15 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <div id="auth-wall">
   <div class="auth-box">
     <div class="auth-logo">NEXUS TMS</div>
-    <div class="auth-sub">ZTA Transportation LLC</div>
-    <input class="auth-input" id="auth-input" type="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')authSubmit()">
-    <button class="auth-btn" onclick="authSubmit()">Sign In</button>
+    <div class="auth-sub">Sign in to your account</div>
+    <input class="auth-input" id="auth-email-input" type="email" placeholder="Email address"
+      autocomplete="email" onkeydown="if(event.key==='Enter')document.getElementById('auth-input').focus()">
+    <input class="auth-input" id="auth-input" type="password" placeholder="Password"
+      autocomplete="current-password" onkeydown="if(event.key==='Enter')authSubmit()" style="margin-top:10px">
+    <button class="auth-btn" id="auth-submit-btn" onclick="authSubmit()">Sign In</button>
     <div class="auth-err" id="auth-err"></div>
   </div>
 </div>
-<script>
-(function(){
-  const PASS = 'zta2026';
-  const KEY = 'nexus_auth';
-  if(sessionStorage.getItem(KEY) === '1'){
-    document.getElementById('auth-wall').style.display='none';
-    return;
-  }
-  document.body.style.overflow='hidden';
-  window.authSubmit = function(){
-    const val = document.getElementById('auth-input').value;
-    if(val === PASS){
-      sessionStorage.setItem(KEY,'1');
-      document.getElementById('auth-wall').style.display='none';
-      document.body.style.overflow='';
-    } else {
-      const inp = document.getElementById('auth-input');
-      inp.classList.remove('shake');
-      void inp.offsetWidth;
-      inp.classList.add('shake');
-      document.getElementById('auth-err').textContent='Incorrect password';
-      inp.value='';
-    }
-  };
-  setTimeout(()=>document.getElementById('auth-input').focus(), 100);
-})();
-</script>
-
-
-<div class="loading-bar" id="loading-bar"></div>
-
-<aside class="sidebar">
-  <div class="logo-area">
-    <div class="logo-mark">NEXUS</div>
-    <div class="logo-sub">ZTA Transportation LLC</div>
-  </div>
-  <nav class="nav">
-    <div class="nav-section">
-      <div class="nav-section-label">Operations</div>
-      <a class="nav-item" href="nexus-tms-settlement-v3.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
-      </a>
-      <a class="nav-item" href="nexus-tms-history.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>History
-      </a>
-      <a class="nav-item" href="nexus-tms-street-loads.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l4-7 3 5 2-3 3 5"/></svg>Street Loads
-      </a>
-
-    </div>
-    <div class="nav-section">
-      <div class="nav-section-label">Management</div>
-      <a class="nav-item active" href="nexus-tms-equipment-5.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
-      </a>
-      <a class="nav-item" href="nexus-tms-drivers-5.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
-      </a>
-    </div>
-  </nav>
-  <div class="db-indicator">
-    <div class="db-dot" id="db-dot"></div>
-    <span id="db-status">Connecting...</span>
-  </div>
-  <div class="sidebar-foot">NEXUS<strong>v1.0 &middot; Equipment</strong></div>
-</aside>
-
 <div class="main">
   <div class="topbar">
     <div class="topbar-title">Equipment</div>
@@ -452,19 +392,68 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 // -- SUPABASE CONFIG ------------------------------------------
 const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
-const ORG_ID = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+
+// ── Runtime auth state (populated after login) ────────────────────────
+let _jwt = null;
+let _orgId = null;
+
+// ── Auth headers ──────────────────────────────────────────────────────
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// ── Supabase Auth: sign in with email+password ────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+
+// ── Restore session from sessionStorage ───────────────────────────────
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
+    });
+    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Overhead / dispatch from sessionStorage ───────────────────────────
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
+// org_id — from super-admin session or fallback to ZTA
+const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+// auth pass — from org's password stored in session, or fallback
+// overhead settings from Account page ($/week = monthly/4)
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 const API = SUPABASE_URL + '/rest/v1';
-const HEADERS = {
-  'Content-Type': 'application/json',
-  'apikey': SUPABASE_KEY,
-  'Authorization': 'Bearer ' + SUPABASE_KEY,
-  'Prefer': 'return=representation'
-};
+// HEADERS is now authHeaders() — defined in config block above;
 
 // Minimal REST API wrapper
 const db = {
   async select(table, params = '') {
-    const r = await fetch(`${API}/${table}?${params}`, { headers: HEADERS });
+    const r = await fetch(`${API}/${table}?${params}`, { headers: authHeaders() });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
@@ -472,7 +461,7 @@ const db = {
     const body = Array.isArray(data) ? data : [data];
     const r = await fetch(`${API}/${table}`, {
       method: 'POST',
-      headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation' },
+      headers: authHeaders({, 'Prefer': 'resolution=merge-duplicates,return=representation'}),
       body: JSON.stringify(body)
     });
     if (!r.ok) throw new Error(await r.text());
@@ -481,7 +470,7 @@ const db = {
   async delete(table, id) {
     const r = await fetch(`${API}/${table}?id=eq.${id}`, {
       method: 'DELETE',
-      headers: HEADERS
+      headers: authHeaders()
     });
     if (!r.ok) throw new Error(await r.text());
     return true;
@@ -515,9 +504,9 @@ async function loadAll() {
   loading(true);
   try {
     const [t, tr, d] = await Promise.all([
-      db.select('trucks', `org_id=eq.${ORG_ID}&order=unit`),
-      db.select('trailers', `org_id=eq.${ORG_ID}&order=num`),
-      db.select('drivers', `org_id=eq.${ORG_ID}&status=eq.active&order=last`)
+      db.select('trucks', `org_id=eq.${_orgId}&order=unit`),
+      db.select('trailers', `org_id=eq.${_orgId}&order=num`),
+      db.select('drivers', `org_id=eq.${_orgId}&status=eq.active&order=last`)
     ]);
     trucks = t.map(normTruck);
     trailers = tr;
@@ -777,7 +766,7 @@ async function saveTruck() {
 
   const row = {
     id: editId || uid(),
-    org_id: ORG_ID,
+    org_id: _orgId,
     unit,
     status: document.getElementById('f-status').value,
     year: document.getElementById('f-year').value.trim(),
@@ -826,7 +815,7 @@ async function saveTrailer() {
 
   const row = {
     id: editId || uid(),
-    org_id: ORG_ID,
+    org_id: _orgId,
     num,
     trailer_type: document.getElementById('f-tr-type').value,
     year: document.getElementById('f-tr-year').value.trim(),
@@ -922,7 +911,7 @@ async function confirmImport() {
     const ex = trucks.find(t => t.unit === unit);
     return {
       id: ex?.id || uid(),
-      org_id: ORG_ID,
+      org_id: _orgId,
       unit,
       status: get(row, COL_MAP.status) || ex?.status || 'active',
       year: get(row, COL_MAP.year) || ex?.year || '',
@@ -963,8 +952,47 @@ async function confirmImport() {
   });
 });
 
+// ── Auth: restore session or show login wall ─────────────────────────
+(async function initAuth(){
+  const ok = await restoreSession();
+  if (ok) {
+    document.getElementById('auth-wall').style.display = 'none';
+  } else {
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('auth-email-input')?.focus(), 100);
+  }
+})();
+window.authSubmit = async function() {
+  const email = document.getElementById('auth-email-input').value.trim();
+  const pw    = document.getElementById('auth-input').value;
+  const btn   = document.getElementById('auth-submit-btn');
+  const err   = document.getElementById('auth-err');
+  if (!email || !pw) { err.textContent = 'Enter email and password'; return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true; err.textContent = '';
+  try {
+    const session = await signIn(email, pw);
+    _jwt = session.access_token;
+    const payload = JSON.parse(atob(_jwt.split('.')[1]));
+    const orgs = await sbFetch('organizations',
+      `owner_id=eq.${payload.sub}&select=id,name,slug`);
+    if (!orgs.length) throw new Error('No organization linked');
+    _orgId = orgs[0].id;
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: _jwt, org_id: _orgId, org_name: orgs[0].name
+    }));
+    sessionStorage.setItem('nexus-org-id',   _orgId);
+    sessionStorage.setItem('nexus-org-name', orgs[0].name);
+    document.getElementById('auth-wall').style.display = 'none';
+    document.body.style.overflow = '';
+  } catch(e) {
+    err.textContent = e.message || 'Login failed';
+    btn.textContent = 'Sign In'; btn.disabled = false;
+  }
+};
+
 // -- INIT -----------------------------------------------------
-loadAll();
+// loadAll called after auth (or immediately if session restored)
+(async function(){ await restoreSession(); loadAll(); })();
 </script>
 </body>
 </html>

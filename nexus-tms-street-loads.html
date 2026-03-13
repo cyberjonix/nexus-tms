@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXUS — Street Loads</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;
@@ -369,43 +373,117 @@ DEL : 03/13-14/26  07:00 Am
 <script>
 const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
-const ORG_ID = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
 
+// ── Runtime auth state (populated after login) ────────────────────────
+let _jwt = null;
+let _orgId = null;
+
+// ── Auth headers ──────────────────────────────────────────────────────
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// ── Supabase Auth: sign in with email+password ────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+
+// ── Restore session from sessionStorage ───────────────────────────────
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
+    });
+    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Overhead / dispatch from sessionStorage ───────────────────────────
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
+
+// ── Session restore / auth guard ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const ok = await restoreSession();
+  if (!ok) { window.location.href = 'nexus-tms-settlement-v3.html'; return; }
+  initPage();
+});
+// org_id — from super-admin session or fallback to ZTA
+const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+// overhead settings from Account page ($/week = monthly/4)
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 let trucks = [], drivers = [], allLoads = [];
 
 // ── SUPABASE ──────────────────────────────────────────────────────────
-async function sbFetch(table, params='') {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  });
-  if (!r.ok) throw new Error(`${table}: ${r.status}`);
+// ── Supabase helpers (use JWT via authHeaders) ────────────────────────
+async function sbFetch(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
   return r.json();
 }
-async function sbInsert(table, payload) {
+async function sbUpsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method:'POST',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-    body: JSON.stringify(payload),
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(body)
   });
-  if (!r.ok) { const e=await r.text(); throw new Error(e); }
+  if (!r.ok) throw new Error(`Upsert ${table}: ${r.status}`);
 }
-async function sbDelete(table, id) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-    method:'DELETE',
-    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+async function sbInsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'return=representation' }),
+    body: JSON.stringify(body)
   });
-  if (!r.ok) throw new Error(`Delete failed: ${r.status}`);
+  if (!r.ok) throw new Error(`Insert ${table}: ${r.status}`);
+  return r.json();
 }
+async function sbPatch(table, query, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Prefer': 'return=minimal' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Patch ${table}: ${r.status}`);
+}
+async function sbDelete(table, query) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'DELETE', headers: authHeaders()
+  });
+  if (!r.ok) throw new Error(`Delete ${table}: ${r.status}`);
+}
+const db = { upsert: sbUpsert };
 
-function fmt(n){return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
-function toast(msg,err=false){const e=document.getElementById('toast-el');e.textContent=msg;e.style.background=err?'#DC2626':'#0D1829';e.classList.add('show');setTimeout(()=>e.classList.remove('show'),3200)}
-
-// ── INIT ──────────────────────────────────────────────────────────────
 async function init() {
   try {
     [trucks, drivers] = await Promise.all([
-      sbFetch('trucks', `org_id=eq.${ORG_ID}&status=eq.active&select=id,unit,plate,driver`),
-      sbFetch('drivers', `org_id=eq.${ORG_ID}&status=eq.active&select=id,first,last,type,truck`),
+      sbFetch('trucks', `org_id=eq.${_orgId}&status=eq.active&select=id,unit,plate,driver`),
+      sbFetch('drivers', `org_id=eq.${_orgId}&status=eq.active&select=id,first,last,type,truck`),
     ]);
     populateSelects();
     await loadLoads();
@@ -441,7 +519,7 @@ function populateSelects() {
 // ── LOAD LOADS ────────────────────────────────────────────────────────
 async function loadLoads() {
   try {
-    allLoads = await sbFetch('street_loads', `org_id=eq.${ORG_ID}&order=pickup_date.desc&select=*`);
+    allLoads = await sbFetch('street_loads', `org_id=eq.${_orgId}&order=pickup_date.desc&select=*`);
     renderLoads(allLoads);
   } catch(e) {
     document.getElementById('loads-list').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><p>${e.message}</p></div>`;
@@ -679,7 +757,7 @@ async function saveLoad() {
 
   const payload = {
     id:           crypto.randomUUID(),
-    org_id:       ORG_ID,
+    org_id:       _orgId,
     load_id:      document.getElementById('load-id').value.trim(),
     pickup_date:  document.getElementById('pickup-date').value,
     delivery_date:document.getElementById('delivery-date').value || null,

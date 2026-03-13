@@ -2,10 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEXUS — P&L Analytics</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;
@@ -178,20 +182,72 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <script>
 const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
-const ORG_ID = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
-const PASS   = 'zta2026';
+
+// ── Runtime auth state (populated after login) ────────────────────────
+let _jwt = null;
+let _orgId = null;
+
+// ── Auth headers ──────────────────────────────────────────────────────
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// ── Supabase Auth: sign in with email+password ────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+
+// ── Restore session from sessionStorage ───────────────────────────────
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
+    });
+    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Overhead / dispatch from sessionStorage ───────────────────────────
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
+
+// ── Session restore / auth guard ─────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const ok = await restoreSession();
+  if (!ok) { window.location.href = 'nexus-tms-settlement-v3.html'; return; }
+  initPage();
+});
+// org_id — from super-admin session or fallback to ZTA
+const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+// overhead settings from Account page ($/week = monthly/4)
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 
 // $150/month overhead for POO/OO trucks, prorated per settlement week
 // $100 safety + $50 accounting = $150/month / 4 weeks = $37.50/week
-const WEEKLY_OVERHEAD = 37.50;
+// WEEKLY_OVERHEAD from config above
 
-(function auth(){
-  if(sessionStorage.getItem('nxauth')!==PASS){
-    const p=prompt('Access code:');
-    if(p!==PASS){document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#888">Access denied</div>';return;}
-    sessionStorage.setItem('nxauth',p);
-  }
-})();
 
 const $=id=>document.getElementById(id);
 const fmt=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -199,175 +255,51 @@ const D=n=>'$'+fmt(n);
 let toastT;
 function toast(msg,err){const el=$('toast-el');el.textContent=msg;el.style.background=err?'var(--red)':'#0D1829';el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),3000);}
 
-async function sbFetch(table,query){
-  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
-  if(!r.ok)throw new Error(await r.text());
+// ── Supabase helpers (use JWT via authHeaders) ────────────────────────
+async function sbFetch(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
+  if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
   return r.json();
 }
-
-function setPreset(type,el){
-  document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));
-  if(el)el.classList.add('active');
-  const now=new Date();
-  let from,to=now.toISOString().slice(0,10);
-  if(type==='month'){from=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);}
-  else if(type==='quarter'){from=new Date(now.getFullYear(),Math.floor(now.getMonth()/3)*3,1).toISOString().slice(0,10);}
-  else{from='2020-01-01';to='2099-12-31';}
-  $('date-from').value=from;
-  $('date-to').value=to;
-  load();
-}
-function clearActive(){document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));}
-
-function calcPnl(settlements){
-  const trucks={};
-  settlements.forEach(s=>{
-    const key=s.truck_unit||'UNKNOWN';
-    if(!trucks[key]) trucks[key]={unit:key,driverName:s.driver_name,driverType:s.driver_type,weeks:[],totGross:0,totDeds:0,totDriverPay:0,totOverhead:0,totProfit:0,dedAgg:{}};
-    const t=trucks[key];
-    const gross     = Number(s.gross||0);
-    const driverPay = Number(s.driver_pay_amt||0);
-    const dedTotal  = Number(s.deductions_total||0);
-    const type      = (s.driver_type||'P').toUpperCase();
-    const netPay    = Number(s.net_pay||0);
-
-    // Parse deduction items
-    const deds=s.deductions||{};
-    Object.entries(deds).forEach(([k,v])=>{
-      const amt=Number(v&&typeof v==='object'?v.amt:v)||0;
-      if(amt>0) t.dedAgg[k]=(t.dedAgg[k]||0)+amt;
-    });
-
-    // Company revenue = what stays after paying everyone except overhead
-    let companyRev=0,overhead=0;
-    if(type==='P'){
-      companyRev=0; overhead=0;
-    } else if(type==='POO'||type==='OO'){
-      // Company takes fee = gross - netPay - deductions (deductions go to providers, not us)
-      companyRev=gross-netPay-dedTotal;
-      overhead=WEEKLY_OVERHEAD;
-    } else if(type==='CT'){
-      // Company keeps gross minus driver pay and deductions
-      companyRev=gross-driverPay-dedTotal;
-      overhead=0;
-    }
-    const profit=companyRev-overhead;
-
-    t.weeks.push({settleId:s.settle_id,weekStart:s.week_start,weekEnd:s.week_end,gross,driverPay,dedTotal,companyRev,overhead,profit,type});
-    t.totGross     +=gross;
-    t.totDeds      +=dedTotal;
-    t.totDriverPay +=driverPay;
-    t.totOverhead  +=overhead;
-    t.totProfit    +=profit;
+async function sbUpsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(body)
   });
-  return Object.values(trucks).sort((a,b)=>b.totGross-a.totGross);
+  if (!r.ok) throw new Error(`Upsert ${table}: ${r.status}`);
 }
-
-function renderKPIs(trucks){
-  const g=trucks.reduce((a,t)=>a+t.totGross,0);
-  const d=trucks.reduce((a,t)=>a+t.totDeds,0);
-  const p=trucks.reduce((a,t)=>a+t.totDriverPay,0);
-  const pr=trucks.reduce((a,t)=>a+t.totProfit,0);
-  $('kpi-gross').textContent=D(g);
-  $('kpi-deds').textContent=D(d);
-  $('kpi-paid').textContent=D(p);
-  $('kpi-profit').textContent=D(pr);
-  $('kpi-profit').className='kpi-val '+(pr>=0?'green':'red');
+async function sbInsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'return=representation' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Insert ${table}: ${r.status}`);
+  return r.json();
 }
-
-function renderTrucks(trucks){
-  if(!trucks.length){
-    $('trucks-container').innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">No settlements found</div><p>Adjust the date range or generate settlements first</p></div>';
-    return;
-  }
-  $('trucks-container').innerHTML='<div class="trucks-grid">'+trucks.map((t,i)=>{
-    const type=(t.driverType||'P').toUpperCase();
-    const pc=t.totProfit>0?'green':t.totProfit<0?'red':'dim';
-
-    // Deduction rows
-    const dedRows=Object.entries(t.dedAgg).filter(([,v])=>v>0)
-      .map(([k,v])=>`<div class="bk-row"><span style="text-transform:capitalize">${k}</span><span class="amt neg">-${D(v)}</span></div>`).join('')
-      ||'<div class="bk-row" style="color:var(--text3)"><span>No deductions</span><span>—</span></div>';
-
-    // Company P&L rows
-    let compRows='';
-    if(type==='P'){
-      compRows='<div class="bk-row" style="color:var(--text3)"><span>Partner — company keeps nothing</span><span class="amt dim">$0.00</span></div>';
-    } else if(type==='POO'||type==='OO'){
-      const totalFee=t.totProfit+t.totOverhead;
-      const safetyTotal=t.weeks.length*25;    // $100/mo÷4wks = $25/wk
-      const accountingTotal=t.weeks.length*12.5; // $50/mo÷4wks = $12.50/wk
-      compRows=`<div class="bk-row"><span>Company Fee (dispatch cut)</span><span class="amt pos">${D(totalFee)}</span></div>
-        <div class="bk-row"><span>Safety ($100/mo)</span><span class="amt neg">-${D(safetyTotal)}</span></div>
-        <div class="bk-row"><span>Accounting ($50/mo)</span><span class="amt neg">-${D(accountingTotal)}</span></div>
-        <div class="bk-row total"><span>Net Profit</span><span class="amt ${pc}">${D(t.totProfit)}</span></div>`;
-    } else if(type==='CT'){
-      compRows=`<div class="bk-row"><span>Gross Revenue</span><span class="amt pos">${D(t.totGross)}</span></div>
-        <div class="bk-row"><span>Driver Pay</span><span class="amt neg">-${D(t.totDriverPay)}</span></div>
-        <div class="bk-row"><span>Deductions</span><span class="amt neg">-${D(t.totDeds)}</span></div>
-        <div class="bk-row total"><span>Net Profit</span><span class="amt ${pc}">${D(t.totProfit)}</span></div>`;
-    }
-
-    // Week bars
-    const weeks=[...t.weeks].sort((a,b)=>a.weekStart>b.weekStart?1:-1);
-    const maxW=Math.max(...weeks.map(w=>Math.abs(w.profit)),1);
-    const weekRows=weeks.slice(-10).map(w=>{
-      const pct=Math.abs(w.profit)/maxW*100;
-      const pos=w.profit>=0;
-      return `<div class="week-row">
-        <div class="week-label">${w.weekStart||''} → ${(w.weekEnd||'').slice(5)}</div>
-        <div class="week-bar-wrap"><div class="week-bar${pos?'':' loss'}" style="width:${pct}%"></div></div>
-        <div class="week-gross">${D(w.gross)}</div>
-        <div class="week-profit ${pos?'pos':'neg'}">${D(w.profit)}</div>
-      </div>`;
-    }).join('');
-
-    return `<div class="truck-card">
-      <div class="tc-header" onclick="toggle(${i})">
-        <div class="tc-badge badge-${type}">${type}</div>
-        <div class="tc-driver">${t.unit}<span>${t.driverName||'—'}</span></div>
-        <div class="tc-col"><div class="tc-col-label">Gross</div><div class="tc-col-val blue">${D(t.totGross)}</div></div>
-        <div class="tc-col"><div class="tc-col-label">Deductions</div><div class="tc-col-val red">-${D(t.totDeds)}</div></div>
-        <div class="tc-col"><div class="tc-col-label">Paid Out</div><div class="tc-col-val">-${D(t.totDriverPay)}</div></div>
-        <div class="tc-col"><div class="tc-col-label">Overhead</div><div class="tc-col-val dim">-${D(t.totOverhead)}</div></div>
-        <div class="tc-col"><div class="tc-col-label">Profit</div><div class="tc-col-val ${pc}">${D(t.totProfit)}</div></div>
-        <div class="tc-toggle" id="tog-${i}">▸</div>
-      </div>
-      <div class="tc-body" id="bdy-${i}">
-        <div class="breakdown">
-          <div class="bk-section">
-            <div class="bk-title">Revenue</div>
-            <div class="bk-row"><span>Gross Earned</span><span class="amt pos">${D(t.totGross)}</span></div>
-            <div class="bk-row total"><span>Total In</span><span class="amt pos">${D(t.totGross)}</span></div>
-          </div>
-          <div class="bk-section">
-            <div class="bk-title">Deductions → Providers</div>
-            ${dedRows}
-          </div>
-          <div class="bk-section">
-            <div class="bk-title">Company P&L</div>
-            ${compRows}
-          </div>
-        </div>
-        ${weeks.length>0?`<div class="weeks-wrap">
-          <div class="weeks-title">Weekly Breakdown (last ${Math.min(weeks.length,10)} weeks) <span style="color:var(--text3);font-weight:400;margin-left:8px">Gross → Company Profit</span></div>
-          ${weekRows}
-        </div>`:''}
-      </div>
-    </div>`;
-  }).join('')+'</div>';
+async function sbPatch(table, query, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Prefer': 'return=minimal' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Patch ${table}: ${r.status}`);
 }
-
-function toggle(i){
-  const b=$('bdy-'+i),tg=$('tog-'+i);
-  const open=b.classList.toggle('open');
-  tg.textContent=open?'▾':'▸';
+async function sbDelete(table, query) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'DELETE', headers: authHeaders()
+  });
+  if (!r.ok) throw new Error(`Delete ${table}: ${r.status}`);
 }
+const db = { upsert: sbUpsert };
 
 async function load(){
   $('trucks-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
   const from=$('date-from').value, to=$('date-to').value, type=$('filter-type').value;
-  let q=`org_id=eq.${ORG_ID}&is_ct_driver_stmt=eq.false&select=*`;
+  let q=`org_id=eq.${_orgId}&is_ct_driver_stmt=eq.false&select=settle_id,week_start,week_end,driver_name,driver_type,truck_unit,gross,net_pay,dispatch_amt,deductions_total,driver_pay_amt,deductions,is_ct_driver_stmt`;
   if(from) q+=`&week_start=gte.${from}`;
   if(to)   q+=`&week_end=lte.${to}`;
   if(type) q+=`&driver_type=eq.${type}`;

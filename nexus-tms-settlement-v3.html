@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nexus TMS — Settlement</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;--border2:#C9D4E3;
@@ -204,10 +208,13 @@ select.inline-sel:focus{border-color:var(--blue)}
 <!-- AUTH -->
 <div class="auth-screen" id="auth-screen">
   <div class="auth-box">
-    <div class="auth-logo">Nexus TMS</div>
-    <div class="auth-sub">ZTA Transportation LLC</div>
-    <input class="auth-input" type="password" id="auth-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')checkAuth()">
-    <button class="auth-btn" onclick="checkAuth()">Enter</button>
+    <div class="auth-logo">NEXUS TMS</div>
+    <div class="auth-sub">Sign in to your account</div>
+    <input class="auth-input" type="email" id="auth-email" placeholder="Email address" autocomplete="email"
+      onkeydown="if(event.key==='Enter')document.getElementById('auth-pw').focus()">
+    <input class="auth-input" type="password" id="auth-pw" placeholder="Password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')checkAuth()" style="margin-top:10px">
+    <button class="auth-btn" id="auth-btn" onclick="checkAuth()">Sign In</button>
     <div class="auth-err" id="auth-err"></div>
   </div>
 </div>
@@ -373,33 +380,114 @@ select.inline-sel:focus{border-color:var(--blue)}
 // ══════════════════════════════════════════════════════════════════════
 // CONFIG
 // ══════════════════════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://aiokbuzauuadoqrghyic.supabase.co';
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
-const ORG_ID        = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
-const AUTH_PASS     = 'zta2026';
+const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+
+// ── Runtime auth state (populated after login) ────────────────────────
+let _jwt = null;
+let _orgId = null;
+
+// ── Auth headers ──────────────────────────────────────────────────────
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+// ── Supabase Auth: sign in with email+password ────────────────────────
+async function signIn(email, password) {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error_description || d.msg || 'Login failed');
+  return d;
+}
+
+// ── Restore session from sessionStorage ───────────────────────────────
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
+    });
+    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Overhead / dispatch from sessionStorage ───────────────────────────
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
+// org_id — from super-admin session or fallback to ZTA
+const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+// auth pass — from org's password stored in session, or fallback
+// overhead settings from Account page ($/week = monthly/4)
+const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
+const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
+const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
+const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 // Dispatch fee comes from truck ded.dispatch.pct
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════════════════
-function checkAuth() {
-  const pw = document.getElementById('auth-pw').value;
-  if (pw === AUTH_PASS) {
-    sessionStorage.setItem('nxauth','1');
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app-sidebar').style.display = '';
-    document.getElementById('app-main').style.display = '';
-    initApp();
-  } else {
-    document.getElementById('auth-err').textContent = 'Incorrect password';
-  }
-}
-if (sessionStorage.getItem('nxauth') === '1') {
+function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-sidebar').style.display = '';
   document.getElementById('app-main').style.display = '';
-  window.addEventListener('DOMContentLoaded', initApp);
 }
+async function checkAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pw    = document.getElementById('auth-pw').value;
+  const btn   = document.getElementById('auth-btn');
+  const err   = document.getElementById('auth-err');
+  if (!email || !pw) { err.textContent = 'Enter email and password'; return; }
+  btn.textContent = 'Signing in…'; btn.disabled = true; err.textContent = '';
+  try {
+    const session = await signIn(email, pw);
+    _jwt = session.access_token;
+    // Fetch org linked to this user
+    const payload = JSON.parse(atob(_jwt.split('.')[1]));
+    const orgs = await sbFetch('organizations',
+      `owner_id=eq.${payload.sub}&select=id,name,slug,email,phone,address,password`);
+    if (!orgs.length) throw new Error('No organization linked to this account');
+    const org = orgs[0];
+    _orgId = org.id;
+    // Persist session
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: _jwt, org_id: _orgId,
+      org_name: org.name, org_email: org.email
+    }));
+    sessionStorage.setItem('nexus-org-id',   _orgId);
+    sessionStorage.setItem('nexus-org-name', org.name);
+    // Apply account settings if stored in org
+    if (org.dispatch_pct)  sessionStorage.setItem('nexus-dispatch-pct', org.dispatch_pct);
+    if (org.safety_mo)     sessionStorage.setItem('nexus-safety',        org.safety_mo);
+    if (org.accounting_mo) sessionStorage.setItem('nexus-accounting',    org.accounting_mo);
+    showApp();
+    initApp();
+  } catch(e) {
+    err.textContent = e.message || 'Login failed';
+    btn.textContent = 'Sign In'; btn.disabled = false;
+  }
+}
+// ── Auto-restore session on page load ────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const ok = await restoreSession();
+  if (ok) { showApp(); initApp(); }
+  else document.getElementById('auth-email')?.focus();
+});
 
 // ══════════════════════════════════════════════════════════════════════
 // STATE
@@ -407,6 +495,7 @@ if (sessionStorage.getItem('nxauth') === '1') {
 let S = {
   trucks:  [],  // from Supabase trucks table
   drivers: [],  // from Supabase drivers table
+  dth:     [],  // driver_truck_history records
   trips:   null,
   invoice: null,
   ezpass:  null, // { tagId -> totalAmt }
@@ -418,32 +507,46 @@ let S = {
 // ══════════════════════════════════════════════════════════════════════
 // SUPABASE FETCH
 // ══════════════════════════════════════════════════════════════════════
-async function sbFetch(table, params='') {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, {
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-    }
-  });
+// ── Supabase helpers (use JWT via authHeaders) ────────────────────────
+async function sbFetch(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
   if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
   return r.json();
 }
-
 async function sbUpsert(table, payload) {
   const body = Array.isArray(payload) ? payload : [payload];
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
     method: 'POST',
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'resolution=merge-duplicates,return=minimal',
-    },
-    body: JSON.stringify(body),
+    headers: authHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+    body: JSON.stringify(body)
   });
-  if (!r.ok) { const e = await r.text(); throw new Error(e); }
+  if (!r.ok) throw new Error(`Upsert ${table}: ${r.status}`);
 }
+async function sbInsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'return=representation' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Insert ${table}: ${r.status}`);
+  return r.json();
+}
+async function sbPatch(table, query, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'PATCH',
+    headers: authHeaders({ 'Prefer': 'return=minimal' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(`Patch ${table}: ${r.status}`);
+}
+async function sbDelete(table, query) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'DELETE', headers: authHeaders()
+  });
+  if (!r.ok) throw new Error(`Delete ${table}: ${r.status}`);
+}
+const db = { upsert: sbUpsert };
 
 const db = { upsert: sbUpsert };
 
@@ -454,12 +557,14 @@ async function initApp() {
   setConnStatus('loading', 'loading…');
   setLastWeek();
   try {
-    const [trucks, drivers] = await Promise.all([
-      sbFetch('trucks', `org_id=eq.${ORG_ID}&status=eq.active&select=id,unit,plate,owner,driver,driver_type,ded,truck_payment`),
-      sbFetch('drivers', `org_id=eq.${ORG_ID}&status=eq.active&select=id,first,last,type,pay_rate,truck,company`),
+    const [trucks, drivers, dth] = await Promise.all([
+      sbFetch('trucks',  `org_id=eq.${_orgId}&status=eq.active&select=id,unit,plate,owner,driver,driver_type,ded,truck_payment`),
+      sbFetch('drivers', `org_id=eq.${_orgId}&status=eq.active&select=id,first,last,type,pay_rate,truck,company`),
+      sbFetch('driver_truck_history', `org_id=eq.${_orgId}&select=driver_name,truck_unit,date_from,date_to`),
     ]);
     S.trucks  = trucks;
     S.drivers = drivers;
+    S.dth     = dth || [];
     setConnStatus('ok', `${trucks.length} trucks · ${drivers.length} drivers`);
   } catch(e) {
     setConnStatus('err', 'DB error');
@@ -712,9 +817,8 @@ function parseEZPass(rows) {
   const map = {};
   const pFrom = document.getElementById('period-from').value;
   const pTo   = document.getElementById('period-to').value;
-  console.log('[EZPass] period:', pFrom, '->', pTo);
-  console.log('[EZPass] columns:', Object.keys(rows[0] || {}));
-  console.log('[EZPass] row0:', rows[0]);
+
+
   rows.forEach(r => {
     const tagRaw = str(r['TAG ID'] || r['Tag ID'] || r['tag_id'] || r['TagID'] || '');
     const tag    = tagRaw.replace(/\D/g,'');
@@ -722,7 +826,6 @@ function parseEZPass(rows) {
     const dateRaw = str(r['Exit Date'] || r['exit_date'] || r['Posting Date'] || r['posting_date'] || '');
     const date    = normalizeDate(dateRaw);
     if (pFrom && pTo && date && (date < pFrom || date > pTo)) {
-      console.log('[EZPass] filtered out:', tag, date);
       return;
     }
     const amtRaw = str(r['Amount'] || r['amount'] || '0');
@@ -734,7 +837,6 @@ function parseEZPass(rows) {
     }
     map[tag] = (map[tag] || 0) + amt;
   });
-  console.log('[EZPass] map:', map);
   return map;
 }
 
@@ -775,10 +877,29 @@ async function processStep1() {
   loadRows.forEach(r => { if(r.load_id) invByLoad[r.load_id] = r; });
 
   // Group loads by truck
-  const byTruck = {};
+  const // ── DTH helper: find which truck a driver was on for a given date ────
+  function dthTruckForDriver(driverName, dateStr) {
+    if (!dateStr || !S.dth.length) return null;
+    const d = new Date(dateStr);
+    return S.dth.find(h => {
+      if (h.driver_name.trim().toLowerCase() !== driverName.trim().toLowerCase()) return false;
+      const from = new Date(h.date_from);
+      const to   = h.date_to ? new Date(h.date_to) : new Date('9999-12-31');
+      return d >= from && d <= to;
+    }) || null;
+  }
+
+  // ── Build assignments, splitting by truck if driver switched mid-week ─
+  // Key = truck_unit + '|' + driver_name so same driver on 2 trucks = 2 statements
+  byTruck = {};
   S.trips.forEach(t => {
-    const key = t.truck || 'UNKNOWN';
-    if (!byTruck[key]) byTruck[key] = { truck: key, driver: t.driver, loads: [] };
+    const driverName = t.driver || '';
+    // Check DTH: was this driver on a different truck on this date?
+    const dthRecord = dthTruckForDriver(driverName, t.pickup_date || t.delivery_date);
+    // Use DTH truck if available, else fall back to CSV truck field
+    const truckKey = (dthRecord ? dthRecord.truck_unit : t.truck) || t.truck || 'UNKNOWN';
+    const key = truckKey + '|' + driverName;
+    if (!byTruck[key]) byTruck[key] = { truck: truckKey, driver: driverName, loads: [], dthSplit: !!dthRecord };
     byTruck[key].loads.push(t);
   });
 
@@ -788,10 +909,12 @@ async function processStep1() {
     const driverObj = S.drivers.find(d =>
       (d.first + ' ' + d.last).toLowerCase() === g.driver.toLowerCase()
     ) || null;
-    // Get truck from driver's assigned truck (unit), or fallback to plate match
-    const truckObj = driverObj
-      ? S.trucks.find(t => t.unit === driverObj.truck || t.plate === driverObj.truck) || null
-      : S.trucks.find(t => t.plate === g.truck || t.unit === g.truck) || null;
+    // Get truck from DTH truck or driver's current assignment
+    const truckObj = S.trucks.find(t =>
+      t.unit === g.truck || t.plate === g.truck
+    ) || (driverObj
+      ? S.trucks.find(t => t.unit === driverObj.truck || t.plate === driverObj.truck)
+      : null) || null;
 
     const displayLoads = buildDisplayLoads(g.loads, tourByTrip, invByLoad);
     const gross = displayLoads.reduce((a,l) => a + l.gross, 0);
@@ -806,6 +929,7 @@ async function processStep1() {
       loads:      displayLoads,
       gross,
       miles:      displayLoads.reduce((a,l) => a + l.miles, 0),
+      dthSplit:   g.dthSplit || false,  // true = was a mid-week truck switch
     };
   });
 
@@ -814,13 +938,13 @@ async function processStep1() {
   const pTo   = document.getElementById('period-to').value;
   try {
     const streetLoads = await sbFetch('street_loads',
-      `org_id=eq.${ORG_ID}&status=eq.paid&pickup_date=gte.${pFrom}&pickup_date=lte.${pTo}&select=*`
+      `org_id=eq.${_orgId}&status=eq.paid&pickup_date=gte.${pFrom}&pickup_date=lte.${pTo}&select=*`
     );
     streetLoads.forEach(sl => {
       // Match to assign by truck_unit or driver_name
       let assign = S.assigns.find(a =>
-        (a.truckObj && a.truckObj.unit === sl.truck_unit) ||
-        (a.driverName && sl.driver_name && a.driverName.toLowerCase() === sl.driver_name.toLowerCase())
+        (a.truckObj && a.truckObj.unit && sl.truck_unit && a.truckObj.unit.trim().toLowerCase() === sl.truck_unit.trim().toLowerCase()) ||
+        (a.driverName && sl.driver_name && a.driverName.trim().toLowerCase() === sl.driver_name.trim().toLowerCase())
       );
       // If no matching assign exists, create one
       if (!assign) {
@@ -1019,10 +1143,10 @@ async function saveSettlementsToDb() {
     const s    = calcSettlement(a);
     const adjs = (adjState[S.assigns.indexOf(a)] || []).filter(Boolean);
     const adjTotal = adjs.reduce((sum,x) => sum+(x.amt||0), 0);
-    const stableId = await stableUUID(`${ORG_ID}|${a.settlId}|${pFrom}|${a.truckObj?.unit||a.truck}`);
+    const stableId = await stableUUID(`${_orgId}|${a.settlId}|${pFrom}|${a.truckObj?.unit||a.truck}`);
     return {
       id: stableId,
-      org_id: ORG_ID,
+      org_id: _orgId,
       settle_id: a.settlId,
       week_start: pFrom,
       week_end: pTo,
@@ -1097,14 +1221,11 @@ function calcSettlement(assign) {
   // Deductions from truck's ded JSONB
   const ded = (truck && truck.ded) ? (typeof truck.ded === 'string' ? JSON.parse(truck.ded) : truck.ded) : {};
 
-  console.log('[Settlement]', assign.driverName, '| truck:', truck?.unit, '| ded.ezpass:', ded.ezpass, '| S.ezpass:', S.ezpass);
-
   // EZ Pass: match normalised TAG ID
   let ezpassAmt = 0;
   if (S.ezpass && ded.ezpass && ded.ezpass.on && ded.ezpass.id) {
     const tagNorm = String(ded.ezpass.id).replace(/\D/g,'');
     ezpassAmt = S.ezpass[tagNorm] || 0;
-    console.log('[EZPass match]', assign.driverName, '| tagNorm:', tagNorm, '| found:', ezpassAmt);
   }
 
   // Fuel: match Card #
@@ -1215,6 +1336,7 @@ function buildSettleCard(a, i, period) {
         <div class="sc-driver">
           ${driverName}
           <span class="type-badge ${badgeCls}" style="margin-left:8px;font-size:11px">${dTypeLabel}</span>
+          ${a.dthSplit ? '<span style="margin-left:6px;background:#f59e0b;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:.5px">TRUCK SPLIT</span>' : ''}
         </div>
         <div class="sc-meta"><span style="font-family:var(--mono);color:var(--blue);font-weight:700">#${a.settlId}</span> · Truck ${a.truck} · ${a.loads.length} loads · ${Math.round(a.miles).toLocaleString()} mi · ${period}</div>
       </div>
@@ -1434,7 +1556,7 @@ function printSettlement(i) {
           2100 Grant Ave, Apt 10<br>
           Philadelphia, PA 19115<br>
           272-372-0000<br>
-          info@ztatrans.com
+          jnson@ya.ru
         </div>
       </div>
     </div>
