@@ -427,8 +427,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!ok) { window.location.href = 'nexus-tms-settlement-v3.html'; return; }
   initPage();
 });
-// org_id — from super-admin session or fallback to ZTA
-const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
 // overhead settings from Account page ($/week = monthly/4)
 const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
 const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;

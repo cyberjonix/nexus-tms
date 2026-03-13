@@ -207,7 +207,6 @@ const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
 const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 
 // Determine org_id — from sessionStorage (if entered via admin) or hardcoded fallback
-const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
 
 const $ = id => document.getElementById(id);
 let toastT, currentOrg = null;

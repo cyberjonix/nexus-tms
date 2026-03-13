@@ -425,8 +425,6 @@ const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))   
 const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
 const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
 const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
-// org_id — from super-admin session or fallback to ZTA
-const _orgId = sessionStorage.getItem('nexus-org-id') || '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
 // auth pass — from org's password stored in session, or fallback
 // overhead settings from Account page ($/week = monthly/4)
 const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
