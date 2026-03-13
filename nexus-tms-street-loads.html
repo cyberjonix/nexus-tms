@@ -416,10 +416,6 @@ async function restoreSession() {
 }
 
 // ── Overhead / dispatch from sessionStorage ───────────────────────────
-const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
-const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
-const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
-const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
 
 // ── Session restore / auth guard ─────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
