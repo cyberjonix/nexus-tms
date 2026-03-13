@@ -867,7 +867,7 @@ async function processStep1() {
   loadRows.forEach(r => { if(r.load_id) invByLoad[r.load_id] = r; });
 
   // Group loads by truck
-  const // ── DTH helper: find which truck a driver was on for a given date ────
+  // ── DTH helper: find which truck a driver was on for a given date ────
   function dthTruckForDriver(driverName, dateStr) {
     if (!dateStr || !S.dth.length) return null;
     const d = new Date(dateStr);
