@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS — Data Imports</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;
+  --text:#0D1829;--text2:#4A5568;--text3:#8A9AB0;
+  --blue:#1A56DB;--blue-l:#EBF2FF;--green:#059669;--green-l:#ECFDF5;
+  --red:#DC2626;--amber:#D97706;--amber-l:#FFFBEB;--navy:#0D1829;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --sh:0 1px 3px rgba(0,0,0,.07);--r:10px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+/* SIDEBAR */
+.sidebar{width:216px;min-width:216px;background:var(--navy);height:100vh;position:sticky;top:0;display:flex;flex-direction:column}
+.logo-area{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-mark{font-family:var(--mono);font-size:17px;font-weight:500;color:#fff;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section{margin-bottom:18px}
+.nav-section-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.28);padding:0 8px 5px}
+.nav-item{text-decoration:none;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;margin-bottom:1px}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(26,86,219,.3);color:#fff}
+.nav-ic{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-ic{opacity:1}
+.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.35)}
+.sidebar-foot strong{color:rgba(255,255,255,.6);display:block;margin-top:2px;font-size:12px}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.topbar-title{font-size:15px;font-weight:700}
+.content{padding:24px;flex:1;max-width:900px}
+
+/* DROP ZONE */
+.drop-zone{border:2px dashed var(--border);border-radius:var(--r);padding:48px 24px;text-align:center;transition:all .2s;cursor:pointer;background:var(--surface);margin-bottom:24px}
+.drop-zone.over{border-color:var(--blue);background:var(--blue-l)}
+.drop-zone:hover{border-color:#A0AEC0}
+.drop-icon{font-size:36px;margin-bottom:12px}
+.drop-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
+.drop-sub{font-size:13px;color:var(--text3)}
+.drop-types{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.type-pill{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+
+/* RESULTS */
+.results-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:12px}
+.import-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden;animation:slideIn .2s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ic-header{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.ic-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ic-icon.trips{background:#EFF6FF}
+.ic-icon.invoice{background:#F0FDF4}
+.ic-icon.ezpass{background:#FEF3C7}
+.ic-icon.fuel{background:#FDF4FF}
+.ic-icon.unknown{background:var(--surface2)}
+.ic-meta{flex:1;min-width:0}
+.ic-filename{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic-type{font-size:11px;color:var(--text3);margin-top:1px}
+.ic-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;flex-shrink:0}
+.badge-trips{background:#EFF6FF;color:#1E40AF}
+.badge-invoice{background:#F0FDF4;color:#065F46}
+.badge-ezpass{background:#FEF3C7;color:#92400E}
+.badge-fuel{background:#FDF4FF;color:#6B21A8}
+.badge-unknown{background:var(--surface2);color:var(--text3)}
+.ic-body{padding:14px 16px}
+.stats-row{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)}
+.stat-val{font-size:15px;font-weight:700;color:var(--text)}
+.stat-val.green{color:var(--green)}
+.stat-val.blue{color:var(--blue)}
+
+/* TABLE PREVIEW */
+.preview-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px}
+.preview-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:6px}
+table.preview{width:100%;border-collapse:collapse;font-size:11px}
+table.preview th{background:var(--surface2);padding:6px 10px;text-align:left;font-weight:600;color:var(--text3);white-space:nowrap;border-bottom:1px solid var(--border)}
+table.preview td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap}
+table.preview tr:last-child td{border-bottom:none}
+table.preview td.r,table.preview th.r{text-align:right}
+.more-rows{font-size:11px;color:var(--text3);padding:8px 10px;font-style:italic}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:40px;color:var(--text3);display:none}
+.empty-state.show{display:block}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#0D1829;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.btn{height:34px;padding:0 14px;border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn-outline{background:var(--surface);color:var(--text2);border:1px solid var(--border)}.btn-outline:hover{border-color:var(--blue);color:var(--blue)}
+.btn-ghost{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:4px 8px;border-radius:4px}.btn-ghost:hover{color:var(--red)}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">NEXUS</div>
+    <div class="logo-sub">ZTA Transportation LLC</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-item" href="nexus-tms-settlement-v3.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
+      </a>
+      <a class="nav-item" href="nexus-tms-history.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>History
+      </a>
+      <a class="nav-item active" href="nexus-tms-imports.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M2 12h12"/></svg>Data Imports
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Management</div>
+      <a class="nav-item" href="nexus-tms-equipment-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
+      </a>
+      <a class="nav-item" href="nexus-tms-drivers-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
+      </a>
+    </div>
+  </nav>
+  <div class="sidebar-foot">NEXUS<strong>v1.0 · Data Imports</strong></div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">Data Imports</div>
+    <button class="btn btn-outline" onclick="clearAll()">Clear All</button>
+  </div>
+
+  <div class="content">
+    <!-- DROP ZONE -->
+    <div class="drop-zone" id="drop-zone"
+      ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)"
+      onclick="document.getElementById('file-input').click()">
+      <div class="drop-icon">📂</div>
+      <div class="drop-title">Drop files here or click to browse</div>
+      <div class="drop-sub">Any number of files — type is detected automatically</div>
+      <div class="drop-types">
+        <span class="type-pill">Amazon Trips CSV</span>
+        <span class="type-pill">Amazon Invoice XLSX</span>
+        <span class="type-pill">EZPass CSV</span>
+        <span class="type-pill">FleetOne Fuel CSV</span>
+      </div>
+    </div>
+    <input type="file" id="file-input" multiple accept=".csv,.xlsx,.xls" style="display:none" onchange="onFileInput(event)">
+
+    <!-- RESULTS -->
+    <div id="results-wrap" style="display:none">
+      <div class="results-title">Imported Files</div>
+      <div id="cards-wrap"></div>
+    </div>
+
+    <div class="empty-state" id="empty-state">
+      No files imported yet.
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+let imports = []; // [{type, filename, rows, meta}]
+
+function toast(msg){const e=document.getElementById('toast-el');e.textContent=msg;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),3200)}
+function str(v){return v===null||v===undefined?'':String(v).trim()}
+function num(v){if(typeof v==='number')return v;return parseFloat(str(v).replace(/[$,()]/g,''))||0}
+function fmt(n){return Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtInt(n){return Number(n||0).toLocaleString('en-US')}
+
+// ── DRAG & DROP ───────────────────────────────────────────────────────
+function onDragOver(e){e.preventDefault();document.getElementById('drop-zone').classList.add('over')}
+function onDragLeave(e){document.getElementById('drop-zone').classList.remove('over')}
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('over');
+  handleFiles([...e.dataTransfer.files]);
+}
+function onFileInput(e){handleFiles([...e.target.files]);e.target.value='';}
+
+// ── FILE HANDLING ─────────────────────────────────────────────────────
+function handleFiles(files){
+  files.forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const reader = new FileReader();
+    reader.onload = e => {
+      let data;
+      try {
+        const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        data = XLSX.utils.sheet_to_json(ws, {defval:''});
+      } catch(err) {
+        toast('Could not read: ' + file.name);
+        return;
+      }
+      if (!data || !data.length) { toast('Empty file: ' + file.name); return; }
+      processFile(data, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ── TYPE DETECTION ────────────────────────────────────────────────────
+function detectType(data) {
+  const cols = Object.keys(data[0]).map(k => k.toLowerCase().trim()).join('|');
+  if (cols.includes('invoice number') || cols.includes('gross pay') || cols.includes('item type')) return 'invoice';
+  if (cols.includes('card #') || (cols.includes('tran date') && cols.includes('amt'))) return 'fuel';
+  if (cols.includes('tag id') || (cols.includes('posting date') && cols.includes('amount'))) return 'ezpass';
+  if (cols.includes('tractor vehicle id') || (cols.includes('driver name') && cols.includes('load id'))) return 'trips';
+  return 'unknown';
+}
+
+// ── PARSERS ───────────────────────────────────────────────────────────
+function analyzeTrips(rows) {
+  const loads = rows.filter(r => str(r['Load ID'] || r['load_id']));
+  const trucks = new Set(loads.map(r => str(r['Tractor Vehicle ID'] || r['truck_id'] || r['Tractor'] || '')).filter(Boolean));
+  const drivers = new Set(loads.map(r => str(r['Driver Name'] || r['driver_name'] || '')).filter(Boolean));
+  const dates = loads.map(r => str(r['Stop 1 Planned Arrival Date'] || r['pickup_date'] || '')).filter(Boolean).sort();
+  const tours = new Set(loads.map(r => { const t = str(r['Trip ID']||''); return t.startsWith('T-')?t:null; }).filter(Boolean));
+  return {
+    rows: loads,
+    total_rows: loads.length,
+    trucks: trucks.size,
+    drivers: drivers.size,
+    tours: tours.size,
+    date_from: dates[0] || null,
+    date_to: dates[dates.length-1] || null,
+    preview: loads.slice(0,5).map(r => ({
+      load: str(r['Load ID']||''),
+      driver: str(r['Driver Name']||''),
+      truck: str(r['Tractor Vehicle ID']||''),
+      origin: str(r['Stop 1']||'').split(',')[0],
+      dest: str(r['Stop 2']||r['Stop 2 Facility Code']||'').split(',')[0],
+      miles: str(r['Estimate Distance']||''),
+    })),
+  };
+}
+
+function analyzeInvoice(rows) {
+  const payments = rows.filter(r => num(r['Gross Pay']||r['gross_pay']||0) !== 0);
+  const invId = str(rows[0]?.['Invoice Number'] || rows[0]?.['invoice_number'] || '');
+  const total = payments.reduce((a,r) => a + num(r['Gross Pay']||r['gross_pay']||0), 0);
+  const dates = payments.map(r => str(r['Start Date']||r['start_date']||'')).filter(Boolean).sort();
+  const trips = new Set(payments.map(r => str(r['Trip ID']||'')).filter(s=>s.startsWith('T-')));
+  return {
+    rows: payments,
+    total_rows: payments.length,
+    invoice_id: invId,
+    total,
+    trips: trips.size,
+    date_from: dates[0]||null,
+    date_to: dates[dates.length-1]||null,
+    preview: payments.slice(0,5).map(r => ({
+      trip: str(r['Trip ID']||''),
+      load: str(r['Load ID']||''),
+      type: str(r['Item Type']||''),
+      route: str(r['Route']||''),
+      gross: num(r['Gross Pay']||0),
+    })),
+  };
+}
+
+function analyzeEZPass(rows) {
+  const tags = {};
+  rows.forEach(r => {
+    const tag = str(r['TAG ID']||r['Tag ID']||r['tag_id']||'').replace(/\D/g,'');
+    if (!tag) return;
+    const amtRaw = str(r['Amount']||r['amount']||'0');
+    let amt = amtRaw.startsWith('(') ? parseFloat(amtRaw.replace(/[()$,]/g,''))||0 : parseFloat(amtRaw.replace(/[$,]/g,''))||0;
+    tags[tag] = (tags[tag]||0) + amt;
+  });
+  const dates = rows.map(r => str(r['Exit Date']||r['Posting Date']||'')).filter(Boolean).sort();
+  const total = Object.values(tags).reduce((a,v)=>a+v,0);
+  const tagEntries = Object.entries(tags).sort((a,b)=>b[1]-a[1]);
+  return {
+    rows,
+    total_rows: rows.length,
+    tags: Object.keys(tags).length,
+    total,
+    date_from: dates[0]||null,
+    date_to: dates[dates.length-1]||null,
+    preview: tagEntries.slice(0,5).map(([tag,amt]) => ({tag, amt})),
+  };
+}
+
+function analyzeFuel(rows) {
+  const cards = {};
+  rows.forEach(r => {
+    const card = str(r['Card #']||r['card_num']||'');
+    if (!card) return;
+    const amt = num(r['Amt']||r['Amount']||r['amt']||0);
+    const unit = str(r['Unit']||r['unit']||'');
+    if (!cards[card]) cards[card] = {amt:0, unit, txns:0};
+    cards[card].amt += amt;
+    cards[card].txns++;
+  });
+  const dates = rows.map(r => str(r['Tran Date']||r['Date']||'')).filter(Boolean).sort();
+  const total = Object.values(cards).reduce((a,v)=>a+v.amt,0);
+  const cardEntries = Object.entries(cards).sort((a,b)=>b[1].amt-a[1].amt);
+  return {
+    rows,
+    total_rows: rows.length,
+    cards: Object.keys(cards).length,
+    total,
+    date_from: dates[0]||null,
+    date_to: dates[dates.length-1]||null,
+    preview: cardEntries.slice(0,5).map(([card,v]) => ({card, unit:v.unit, txns:v.txns, amt:v.amt})),
+  };
+}
+
+// ── PROCESS FILE ──────────────────────────────────────────────────────
+function processFile(data, filename) {
+  const type = detectType(data);
+  let meta;
+  try {
+    if (type === 'trips')   meta = analyzeTrips(data);
+    else if (type === 'invoice') meta = analyzeInvoice(data);
+    else if (type === 'ezpass')  meta = analyzeEZPass(data);
+    else if (type === 'fuel')    meta = analyzeFuel(data);
+    else meta = {rows: data, total_rows: data.length};
+  } catch(e) {
+    toast('Parse error: ' + e.message);
+    return;
+  }
+
+  imports.push({type, filename, meta, ts: new Date()});
+  renderResults();
+  toast(`✓ ${filename} — ${TYPE_NAMES[type]||'Unknown'}`);
+}
+
+const TYPE_NAMES = {trips:'Amazon Trips', invoice:'Amazon Invoice', ezpass:'EZPass', fuel:'FleetOne Fuel', unknown:'Unknown'};
+const TYPE_EMOJIS = {trips:'🚛', invoice:'📋', ezpass:'🛣️', fuel:'⛽', unknown:'❓'};
+
+function fmtDateStr(s) {
+  if (!s) return '—';
+  // Try to parse various formats
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  return s;
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────
+function renderResults() {
+  const wrap = document.getElementById('results-wrap');
+  const cards = document.getElementById('cards-wrap');
+  wrap.style.display = imports.length ? 'block' : 'none';
+
+  cards.innerHTML = imports.map((imp, idx) => {
+    const {type, filename, meta, ts} = imp;
+    const typeName = TYPE_NAMES[type] || 'Unknown';
+    const emoji = TYPE_EMOJIS[type] || '❓';
+    const period = (meta.date_from||meta.date_to)
+      ? `${fmtDateStr(meta.date_from)} — ${fmtDateStr(meta.date_to)}`
+      : '—';
+
+    let statsHtml = '';
+    let previewHtml = '';
+
+    if (type === 'trips') {
+      statsHtml = `
+        <div class="stat"><div class="stat-label">Loads</div><div class="stat-val blue">${fmtInt(meta.total_rows)}</div></div>
+        <div class="stat"><div class="stat-label">Trucks</div><div class="stat-val">${meta.trucks}</div></div>
+        <div class="stat"><div class="stat-label">Drivers</div><div class="stat-val">${meta.drivers}</div></div>
+        <div class="stat"><div class="stat-label">Tours</div><div class="stat-val">${meta.tours}</div></div>
+        <div class="stat"><div class="stat-label">Period</div><div class="stat-val" style="font-size:12px">${period}</div></div>`;
+      previewHtml = `
+        <div class="preview-label">Preview (first ${meta.preview.length} rows)</div>
+        <div class="preview-table-wrap">
+          <table class="preview">
+            <thead><tr><th>Load ID</th><th>Driver</th><th>Truck</th><th>Origin</th><th>Destination</th><th class="r">Miles</th></tr></thead>
+            <tbody>${meta.preview.map(r=>`<tr><td style="font-family:var(--mono);font-size:10px">${r.load}</td><td>${r.driver}</td><td>${r.truck}</td><td>${r.origin}</td><td>${r.dest}</td><td class="r">${r.miles}</td></tr>`).join('')}</tbody>
+          </table>
+          ${meta.total_rows>5?`<div class="more-rows">+ ${meta.total_rows-5} more rows</div>`:''}
+        </div>`;
+    } else if (type === 'invoice') {
+      statsHtml = `
+        <div class="stat"><div class="stat-label">Rows</div><div class="stat-val blue">${fmtInt(meta.total_rows)}</div></div>
+        <div class="stat"><div class="stat-label">Total Gross</div><div class="stat-val green">$${fmt(meta.total)}</div></div>
+        <div class="stat"><div class="stat-label">Tours</div><div class="stat-val">${meta.trips}</div></div>
+        <div class="stat"><div class="stat-label">Invoice ID</div><div class="stat-val" style="font-size:11px;font-family:var(--mono)">${meta.invoice_id||'—'}</div></div>
+        <div class="stat"><div class="stat-label">Period</div><div class="stat-val" style="font-size:12px">${period}</div></div>`;
+      previewHtml = `
+        <div class="preview-label">Preview (first ${meta.preview.length} rows)</div>
+        <div class="preview-table-wrap">
+          <table class="preview">
+            <thead><tr><th>Trip ID</th><th>Load ID</th><th>Type</th><th>Route</th><th class="r">Gross</th></tr></thead>
+            <tbody>${meta.preview.map(r=>`<tr><td style="font-family:var(--mono);font-size:10px">${r.trip}</td><td style="font-family:var(--mono);font-size:10px">${r.load}</td><td>${r.type}</td><td>${r.route}</td><td class="r green">$${fmt(r.gross)}</td></tr>`).join('')}</tbody>
+          </table>
+          ${meta.total_rows>5?`<div class="more-rows">+ ${meta.total_rows-5} more rows</div>`:''}
+        </div>`;
+    } else if (type === 'ezpass') {
+      statsHtml = `
+        <div class="stat"><div class="stat-label">Transactions</div><div class="stat-val blue">${fmtInt(meta.total_rows)}</div></div>
+        <div class="stat"><div class="stat-label">Tags</div><div class="stat-val">${meta.tags}</div></div>
+        <div class="stat"><div class="stat-label">Total Charges</div><div class="stat-val" style="color:var(--red)">$${fmt(meta.total)}</div></div>
+        <div class="stat"><div class="stat-label">Period</div><div class="stat-val" style="font-size:12px">${period}</div></div>`;
+      previewHtml = `
+        <div class="preview-label">By TAG ID (top ${meta.preview.length})</div>
+        <div class="preview-table-wrap">
+          <table class="preview">
+            <thead><tr><th>TAG ID</th><th class="r">Total Charges</th></tr></thead>
+            <tbody>${meta.preview.map(r=>`<tr><td style="font-family:var(--mono)">${r.tag}</td><td class="r" style="color:var(--red)">$${fmt(r.amt)}</td></tr>`).join('')}</tbody>
+          </table>
+          ${meta.tags>5?`<div class="more-rows">+ ${meta.tags-5} more tags</div>`:''}
+        </div>`;
+    } else if (type === 'fuel') {
+      statsHtml = `
+        <div class="stat"><div class="stat-label">Transactions</div><div class="stat-val blue">${fmtInt(meta.total_rows)}</div></div>
+        <div class="stat"><div class="stat-label">Cards</div><div class="stat-val">${meta.cards}</div></div>
+        <div class="stat"><div class="stat-label">Total Fuel</div><div class="stat-val" style="color:var(--red)">$${fmt(meta.total)}</div></div>
+        <div class="stat"><div class="stat-label">Period</div><div class="stat-val" style="font-size:12px">${period}</div></div>`;
+      previewHtml = `
+        <div class="preview-label">By Card # (top ${meta.preview.length})</div>
+        <div class="preview-table-wrap">
+          <table class="preview">
+            <thead><tr><th>Card #</th><th>Unit</th><th class="r">Transactions</th><th class="r">Total</th></tr></thead>
+            <tbody>${meta.preview.map(r=>`<tr><td style="font-family:var(--mono)">${r.card}</td><td>${r.unit||'—'}</td><td class="r">${r.txns}</td><td class="r" style="color:var(--red)">$${fmt(r.amt)}</td></tr>`).join('')}</tbody>
+          </table>
+          ${meta.cards>5?`<div class="more-rows">+ ${meta.cards-5} more cards</div>`:''}
+        </div>`;
+    } else {
+      statsHtml = `<div class="stat"><div class="stat-label">Rows</div><div class="stat-val">${fmtInt(meta.total_rows)}</div></div>`;
+    }
+
+    return `
+      <div class="import-card" id="icard-${idx}">
+        <div class="ic-header">
+          <div class="ic-icon ${type}">${emoji}</div>
+          <div class="ic-meta">
+            <div class="ic-filename">${filename}</div>
+            <div class="ic-type">Imported ${ts.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</div>
+          </div>
+          <span class="ic-badge badge-${type}">${typeName}</span>
+          <button class="btn-ghost" onclick="removeImport(${idx})" title="Remove">✕</button>
+        </div>
+        <div class="ic-body">
+          <div class="stats-row">${statsHtml}</div>
+          ${previewHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function removeImport(idx) {
+  imports.splice(idx, 1);
+  renderResults();
+}
+
+function clearAll() {
+  imports = [];
+  renderResults();
+}
+</script>
+</body>
+</html>
