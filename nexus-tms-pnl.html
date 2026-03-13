@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS — P&L Analytics</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;
+  --text:#0D1829;--text2:#4A5568;--text3:#8A9AB0;
+  --blue:#1A56DB;--green:#059669;--red:#DC2626;--navy:#0D1829;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --sh:0 1px 3px rgba(0,0,0,.07);--r:10px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+.sidebar{width:216px;min-width:216px;background:var(--navy);height:100vh;position:sticky;top:0;display:flex;flex-direction:column}
+.logo-area{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-mark{font-family:var(--mono);font-size:17px;font-weight:500;color:#fff;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section{margin-bottom:18px}
+.nav-section-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.28);padding:0 8px 5px}
+.nav-item{text-decoration:none;display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;margin-bottom:1px}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(26,86,219,.3);color:#fff}
+.nav-ic{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-ic{opacity:1}
+.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.35)}
+.sidebar-foot strong{color:rgba(255,255,255,.6);display:block;margin-top:2px;font-size:12px}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.topbar-title{font-size:15px;font-weight:700}
+.content{padding:24px;flex:1}
+.filters{display:flex;gap:10px;align-items:center;margin-bottom:24px;flex-wrap:wrap}
+.finput{height:34px;padding:0 10px;border:1px solid var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--text);background:var(--surface);outline:none}
+.fselect{height:34px;padding:0 8px;border:1px solid var(--border);border-radius:6px;font-family:var(--sans);font-size:13px;color:var(--text);background:var(--surface);outline:none;cursor:pointer}
+.btn{height:34px;padding:0 14px;border-radius:6px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 20px}
+.kpi-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:6px}
+.kpi-val{font-size:24px;font-weight:800;color:var(--text)}
+.kpi-val.green{color:var(--green)}.kpi-val.red{color:var(--red)}.kpi-val.blue{color:var(--blue)}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.trucks-grid{display:flex;flex-direction:column;gap:12px}
+.truck-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.tc-header{display:grid;grid-template-columns:60px 1fr repeat(5,110px) 24px;align-items:center;padding:14px 18px;gap:12px;cursor:pointer;transition:background .1s}
+.tc-header:hover{background:var(--surface2)}
+.tc-unit{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--navy)}
+.tc-driver{font-size:13px;font-weight:600;color:var(--text)}
+.tc-driver span{font-size:11px;color:var(--text3);display:block;margin-top:1px;font-weight:400}
+.tc-col{text-align:right}
+.tc-col-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:3px}
+.tc-col-val{font-size:13px;font-weight:700;font-family:var(--mono)}
+.tc-col-val.green{color:var(--green)}.tc-col-val.red{color:var(--red)}.tc-col-val.blue{color:var(--blue)}.tc-col-val.dim{color:var(--text3)}
+.tc-badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-P{background:#ECFDF5;color:#065F46}.badge-POO{background:#EFF6FF;color:#1E40AF}
+.badge-OO{background:#FEF3C7;color:#92400E}.badge-CT{background:#F3E8FF;color:#6B21A8}
+.tc-toggle{color:var(--text3);font-size:16px;text-align:center;transition:transform .2s}
+.tc-body{border-top:1px solid var(--border);padding:18px;background:#FAFBFD;display:none}
+.tc-body.open{display:block}
+.breakdown{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.bk-section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.bk-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px}
+.bk-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)}
+.bk-row:last-child{border-bottom:none}
+.bk-row.total{border-top:2px solid var(--border);border-bottom:none;margin-top:6px;padding-top:8px;font-weight:700;font-size:13px;color:var(--text)}
+.amt{font-family:var(--mono);font-size:12px}
+.amt.neg{color:var(--red)}.amt.pos{color:var(--green)}.amt.dim{color:var(--text3)}
+.weeks-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.weeks-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:10px}
+.week-row{display:flex;align-items:center;gap:12px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px}
+.week-row:last-child{border-bottom:none}
+.week-label{font-family:var(--mono);font-size:10px;color:var(--text3);width:160px;flex-shrink:0}
+.week-bar-wrap{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.week-bar{height:100%;background:var(--green);border-radius:3px}
+.week-bar.loss{background:var(--red)}
+.week-gross{font-family:var(--mono);font-size:10px;color:var(--text3);width:70px;text-align:right}
+.week-profit{font-family:var(--mono);font-size:11px;font-weight:600;width:70px;text-align:right}
+.week-profit.pos{color:var(--green)}.week-profit.neg{color:var(--red)}
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-title{font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.loading{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--text3);gap:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#0D1829;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.period-tabs{display:flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:3px}
+.period-tab{padding:5px 13px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text2);transition:all .15s;border:none;background:none;font-family:var(--sans)}
+.period-tab.active{background:var(--surface);color:var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="logo-area">
+    <div class="logo-mark">NEXUS</div>
+    <div class="logo-sub">ZTA Transportation LLC</div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-item" href="nexus-tms-settlement-v3.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
+      </a>
+      <a class="nav-item" href="nexus-tms-history.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>History
+      </a>
+      <a class="nav-item" href="nexus-tms-street-loads.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l4-7 3 5 2-3 3 5"/></svg>Street Loads
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Analytics</div>
+      <a class="nav-item active" href="nexus-tms-pnl.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l3-4 3 2 3-5 3 3"/><path d="M2 14h12"/></svg>P&amp;L
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Management</div>
+      <a class="nav-item" href="nexus-tms-equipment-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
+      </a>
+      <a class="nav-item" href="nexus-tms-drivers-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
+      </a>
+    </div>
+  </nav>
+  <div class="sidebar-foot">NEXUS<strong>v1.0 · P&L</strong></div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title">P&L Analytics</div>
+    <div id="conn-status" style="font-size:12px;color:var(--text3)">Loading…</div>
+  </div>
+  <div class="content">
+    <div class="filters">
+      <div class="period-tabs">
+        <button class="period-tab" onclick="setPreset('month',this)">This Month</button>
+        <button class="period-tab" onclick="setPreset('quarter',this)">Quarter</button>
+        <button class="period-tab active" onclick="setPreset('all',this)">All Time</button>
+      </div>
+      <input type="date" id="date-from" class="finput" onchange="clearActive();load()">
+      <span style="color:var(--text3);font-size:13px">→</span>
+      <input type="date" id="date-to" class="finput" onchange="clearActive();load()">
+      <select id="filter-type" class="fselect" onchange="load()">
+        <option value="">All Types</option>
+        <option value="P">P — Partner</option>
+        <option value="POO">POO — Partner OO</option>
+        <option value="OO">OO — Owner Op</option>
+        <option value="CT">CT — Company Truck</option>
+      </select>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Total Gross</div><div class="kpi-val blue" id="kpi-gross">—</div><div class="kpi-sub">All trucks revenue</div></div>
+      <div class="kpi"><div class="kpi-label">Deductions</div><div class="kpi-val red" id="kpi-deds">—</div><div class="kpi-sub">Paid to providers</div></div>
+      <div class="kpi"><div class="kpi-label">Paid Out</div><div class="kpi-val" id="kpi-paid">—</div><div class="kpi-sub">Drivers & partners</div></div>
+      <div class="kpi"><div class="kpi-label">Company Profit</div><div class="kpi-val green" id="kpi-profit">—</div><div class="kpi-sub">Net remaining</div></div>
+    </div>
+
+    <div id="trucks-container">
+      <div class="loading"><div class="spinner"></div> Loading settlements…</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+const ORG_ID = '27fbeaa2-60d7-4059-9522-d6f5c291adaa';
+const PASS   = 'zta2026';
+
+// $150/month overhead for POO/OO trucks, prorated per settlement week
+// $100 safety + $50 accounting = $150/month / 4 weeks = $37.50/week
+const WEEKLY_OVERHEAD = 37.50;
+
+(function auth(){
+  if(sessionStorage.getItem('nxauth')!==PASS){
+    const p=prompt('Access code:');
+    if(p!==PASS){document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#888">Access denied</div>';return;}
+    sessionStorage.setItem('nxauth',p);
+  }
+})();
+
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const D=n=>'$'+fmt(n);
+let toastT;
+function toast(msg,err){const el=$('toast-el');el.textContent=msg;el.style.background=err?'var(--red)':'#0D1829';el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),3000);}
+
+async function sbFetch(table,query){
+  const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+
+function setPreset(type,el){
+  document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));
+  if(el)el.classList.add('active');
+  const now=new Date();
+  let from,to=now.toISOString().slice(0,10);
+  if(type==='month'){from=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);}
+  else if(type==='quarter'){from=new Date(now.getFullYear(),Math.floor(now.getMonth()/3)*3,1).toISOString().slice(0,10);}
+  else{from='2020-01-01';to='2099-12-31';}
+  $('date-from').value=from;
+  $('date-to').value=to;
+  load();
+}
+function clearActive(){document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));}
+
+function calcPnl(settlements){
+  const trucks={};
+  settlements.forEach(s=>{
+    const key=s.truck_unit||'UNKNOWN';
+    if(!trucks[key]) trucks[key]={unit:key,driverName:s.driver_name,driverType:s.driver_type,weeks:[],totGross:0,totDeds:0,totDriverPay:0,totOverhead:0,totProfit:0,dedAgg:{}};
+    const t=trucks[key];
+    const gross     = Number(s.gross||0);
+    const driverPay = Number(s.driver_pay_amt||0);
+    const dedTotal  = Number(s.deductions_total||0);
+    const type      = (s.driver_type||'P').toUpperCase();
+    const netPay    = Number(s.net_pay||0);
+
+    // Parse deduction items
+    const deds=s.deductions||{};
+    Object.entries(deds).forEach(([k,v])=>{
+      const amt=Number(v&&typeof v==='object'?v.amt:v)||0;
+      if(amt>0) t.dedAgg[k]=(t.dedAgg[k]||0)+amt;
+    });
+
+    // Company revenue = what stays after paying everyone except overhead
+    let companyRev=0,overhead=0;
+    if(type==='P'){
+      companyRev=0; overhead=0;
+    } else if(type==='POO'||type==='OO'){
+      // Company takes fee = gross - netPay - deductions (deductions go to providers, not us)
+      companyRev=gross-netPay-dedTotal;
+      overhead=WEEKLY_OVERHEAD;
+    } else if(type==='CT'){
+      // Company keeps gross minus driver pay and deductions
+      companyRev=gross-driverPay-dedTotal;
+      overhead=0;
+    }
+    const profit=companyRev-overhead;
+
+    t.weeks.push({settleId:s.settle_id,weekStart:s.week_start,weekEnd:s.week_end,gross,driverPay,dedTotal,companyRev,overhead,profit,type});
+    t.totGross     +=gross;
+    t.totDeds      +=dedTotal;
+    t.totDriverPay +=driverPay;
+    t.totOverhead  +=overhead;
+    t.totProfit    +=profit;
+  });
+  return Object.values(trucks).sort((a,b)=>b.totGross-a.totGross);
+}
+
+function renderKPIs(trucks){
+  const g=trucks.reduce((a,t)=>a+t.totGross,0);
+  const d=trucks.reduce((a,t)=>a+t.totDeds,0);
+  const p=trucks.reduce((a,t)=>a+t.totDriverPay,0);
+  const pr=trucks.reduce((a,t)=>a+t.totProfit,0);
+  $('kpi-gross').textContent=D(g);
+  $('kpi-deds').textContent=D(d);
+  $('kpi-paid').textContent=D(p);
+  $('kpi-profit').textContent=D(pr);
+  $('kpi-profit').className='kpi-val '+(pr>=0?'green':'red');
+}
+
+function renderTrucks(trucks){
+  if(!trucks.length){
+    $('trucks-container').innerHTML='<div class="empty"><div class="empty-icon">📊</div><div class="empty-title">No settlements found</div><p>Adjust the date range or generate settlements first</p></div>';
+    return;
+  }
+  $('trucks-container').innerHTML='<div class="trucks-grid">'+trucks.map((t,i)=>{
+    const type=(t.driverType||'P').toUpperCase();
+    const pc=t.totProfit>0?'green':t.totProfit<0?'red':'dim';
+
+    // Deduction rows
+    const dedRows=Object.entries(t.dedAgg).filter(([,v])=>v>0)
+      .map(([k,v])=>`<div class="bk-row"><span style="text-transform:capitalize">${k}</span><span class="amt neg">-${D(v)}</span></div>`).join('')
+      ||'<div class="bk-row" style="color:var(--text3)"><span>No deductions</span><span>—</span></div>';
+
+    // Company P&L rows
+    let compRows='';
+    if(type==='P'){
+      compRows='<div class="bk-row" style="color:var(--text3)"><span>Partner — company keeps nothing</span><span class="amt dim">$0.00</span></div>';
+    } else if(type==='POO'||type==='OO'){
+      const totalFee=t.totProfit+t.totOverhead;
+      const safetyTotal=t.weeks.length*25;    // $100/mo÷4wks = $25/wk
+      const accountingTotal=t.weeks.length*12.5; // $50/mo÷4wks = $12.50/wk
+      compRows=`<div class="bk-row"><span>Company Fee (dispatch cut)</span><span class="amt pos">${D(totalFee)}</span></div>
+        <div class="bk-row"><span>Safety ($100/mo)</span><span class="amt neg">-${D(safetyTotal)}</span></div>
+        <div class="bk-row"><span>Accounting ($50/mo)</span><span class="amt neg">-${D(accountingTotal)}</span></div>
+        <div class="bk-row total"><span>Net Profit</span><span class="amt ${pc}">${D(t.totProfit)}</span></div>`;
+    } else if(type==='CT'){
+      compRows=`<div class="bk-row"><span>Gross Revenue</span><span class="amt pos">${D(t.totGross)}</span></div>
+        <div class="bk-row"><span>Driver Pay</span><span class="amt neg">-${D(t.totDriverPay)}</span></div>
+        <div class="bk-row"><span>Deductions</span><span class="amt neg">-${D(t.totDeds)}</span></div>
+        <div class="bk-row total"><span>Net Profit</span><span class="amt ${pc}">${D(t.totProfit)}</span></div>`;
+    }
+
+    // Week bars
+    const weeks=[...t.weeks].sort((a,b)=>a.weekStart>b.weekStart?1:-1);
+    const maxW=Math.max(...weeks.map(w=>Math.abs(w.profit)),1);
+    const weekRows=weeks.slice(-10).map(w=>{
+      const pct=Math.abs(w.profit)/maxW*100;
+      const pos=w.profit>=0;
+      return `<div class="week-row">
+        <div class="week-label">${w.weekStart||''} → ${(w.weekEnd||'').slice(5)}</div>
+        <div class="week-bar-wrap"><div class="week-bar${pos?'':' loss'}" style="width:${pct}%"></div></div>
+        <div class="week-gross">${D(w.gross)}</div>
+        <div class="week-profit ${pos?'pos':'neg'}">${D(w.profit)}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="truck-card">
+      <div class="tc-header" onclick="toggle(${i})">
+        <div class="tc-badge badge-${type}">${type}</div>
+        <div class="tc-driver">${t.unit}<span>${t.driverName||'—'}</span></div>
+        <div class="tc-col"><div class="tc-col-label">Gross</div><div class="tc-col-val blue">${D(t.totGross)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Deductions</div><div class="tc-col-val red">-${D(t.totDeds)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Paid Out</div><div class="tc-col-val">-${D(t.totDriverPay)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Overhead</div><div class="tc-col-val dim">-${D(t.totOverhead)}</div></div>
+        <div class="tc-col"><div class="tc-col-label">Profit</div><div class="tc-col-val ${pc}">${D(t.totProfit)}</div></div>
+        <div class="tc-toggle" id="tog-${i}">▸</div>
+      </div>
+      <div class="tc-body" id="bdy-${i}">
+        <div class="breakdown">
+          <div class="bk-section">
+            <div class="bk-title">Revenue</div>
+            <div class="bk-row"><span>Gross Earned</span><span class="amt pos">${D(t.totGross)}</span></div>
+            <div class="bk-row total"><span>Total In</span><span class="amt pos">${D(t.totGross)}</span></div>
+          </div>
+          <div class="bk-section">
+            <div class="bk-title">Deductions → Providers</div>
+            ${dedRows}
+          </div>
+          <div class="bk-section">
+            <div class="bk-title">Company P&L</div>
+            ${compRows}
+          </div>
+        </div>
+        ${weeks.length>0?`<div class="weeks-wrap">
+          <div class="weeks-title">Weekly Breakdown (last ${Math.min(weeks.length,10)} weeks) <span style="color:var(--text3);font-weight:400;margin-left:8px">Gross → Company Profit</span></div>
+          ${weekRows}
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function toggle(i){
+  const b=$('bdy-'+i),tg=$('tog-'+i);
+  const open=b.classList.toggle('open');
+  tg.textContent=open?'▾':'▸';
+}
+
+async function load(){
+  $('trucks-container').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
+  const from=$('date-from').value, to=$('date-to').value, type=$('filter-type').value;
+  let q=`org_id=eq.${ORG_ID}&is_ct_driver_stmt=eq.false&select=*`;
+  if(from) q+=`&week_start=gte.${from}`;
+  if(to)   q+=`&week_end=lte.${to}`;
+  if(type) q+=`&driver_type=eq.${type}`;
+  q+='&order=week_start.asc';
+  try{
+    const rows=await sbFetch('settlements',q);
+    $('conn-status').textContent=rows.length+' settlements';
+    const trucks=calcPnl(rows);
+    renderKPIs(trucks);
+    renderTrucks(trucks);
+  }catch(e){
+    toast('Error: '+e.message,true);
+    $('trucks-container').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">'+e.message+'</div></div>';
+  }
+}
+
+$('conn-status').textContent='Connected';
+setPreset('all', document.querySelector('.period-tab.active'));
+</script>
+</body>
+</html>
