@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS — Super Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0F1A;--surface:#111827;--surface2:#1A2235;--border:#1E2D45;
+  --text:#E8EDF5;--text2:#8A9AB8;--text3:#4A5568;
+  --blue:#1A56DB;--green:#059669;--red:#DC2626;--gold:#D97706;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --r:10px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+
+/* AUTH SCREEN */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:24px}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px;width:360px;text-align:center}
+.auth-logo{font-family:var(--mono);font-size:24px;font-weight:500;color:#fff;margin-bottom:4px}
+.auth-sub{font-size:12px;color:var(--text3);margin-bottom:32px;letter-spacing:.5px;text-transform:uppercase}
+.auth-label{font-size:11px;font-weight:600;color:var(--text2);text-align:left;margin-bottom:6px;display:block}
+.auth-input{width:100%;height:42px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0 14px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;margin-bottom:16px}
+.auth-input:focus{border-color:var(--blue)}
+.auth-btn{width:100%;height:42px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer}
+.auth-btn:hover{background:#1245B8}
+.auth-err{font-size:12px;color:var(--red);margin-top:8px;min-height:16px}
+.auth-badge{background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);color:var(--gold);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px}
+
+/* MAIN */
+#main-screen{display:none;flex-direction:column;min-height:100vh}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:58px;display:flex;align-items:center;justify-content:space-between}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.logo{font-family:var(--mono);font-size:18px;font-weight:500;color:#fff}
+.admin-badge{background:rgba(217,119,6,.15);border:1px solid rgba(217,119,6,.3);color:var(--gold);padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.stat-pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text2)}
+.stat-pill span{color:var(--text);font-weight:700}
+.btn{height:34px;padding:0 16px;border-radius:7px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:7px;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:#1245B8}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border)}.btn-outline:hover{border-color:var(--blue);color:var(--blue)}
+.btn-ghost{background:transparent;color:var(--text3);border:none}.btn-ghost:hover{color:var(--red)}
+.btn-green{background:var(--green);color:#fff}.btn-green:hover{background:#047857}
+.btn-sm{height:28px;padding:0 10px;font-size:12px}
+
+.content{padding:28px 32px;flex:1}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text2)}
+
+/* Org cards grid */
+.orgs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
+.org-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;transition:border-color .15s;position:relative}
+.org-card:hover{border-color:#2A3F60}
+.org-card.inactive{opacity:.55}
+.oc-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.oc-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px}
+.oc-slug{font-family:var(--mono);font-size:11px;color:var(--text3)}
+.oc-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-active{background:rgba(5,150,105,.15);border:1px solid rgba(5,150,105,.3);color:#34D399}
+.badge-inactive{background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);color:#F87171}
+.badge-plan{background:rgba(26,86,219,.15);border:1px solid rgba(26,86,219,.3);color:#60A5FA;font-size:10px;padding:2px 7px}
+.oc-info{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+.oc-info-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)}
+.oc-info-row svg{opacity:.4;flex-shrink:0}
+.oc-actions{display:flex;gap:8px;padding-top:14px;border-top:1px solid var(--border)}
+.oc-id{font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.copy-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;font-family:var(--mono);padding:0}
+.copy-btn:hover{color:var(--blue)}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:480px;max-width:95vw;padding:28px}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--text3);margin-bottom:24px}
+.form-row{margin-bottom:16px}
+.form-label{font-size:11px;font-weight:600;color:var(--text2);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.form-input{width:100%;height:38px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none}
+.form-input:focus{border-color:var(--blue)}
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;gap:10px;margin-top:24px}
+.form-select{width:100%;height:38px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;cursor:pointer}
+
+.empty{text-align:center;padding:60px 20px;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px}
+.empty-title{font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.loading{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--text3);gap:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1A56DB;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">NEXUS</div>
+    <div class="auth-sub">Super Admin</div>
+    <span class="auth-badge">⚡ SYSTEM ACCESS</span>
+    <div style="margin-top:28px">
+      <label class="auth-label">Admin Password</label>
+      <input type="password" class="auth-input" id="auth-input" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')doAuth()">
+      <button class="auth-btn" onclick="doAuth()">Access System</button>
+      <div class="auth-err" id="auth-err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main-screen">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">NEXUS</div>
+      <span class="admin-badge">⚡ SUPER ADMIN</span>
+    </div>
+    <div class="topbar-right">
+      <div class="stat-pill">Organizations: <span id="stat-total">—</span></div>
+      <div class="stat-pill">Active: <span id="stat-active">—</span></div>
+      <button class="btn btn-primary" onclick="openCreateModal()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="2"><path d="M8 2v12M2 8h12"/></svg>
+        New Organization
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="section-header">
+      <div class="section-title">All Organizations</div>
+      <button class="btn btn-outline btn-sm" onclick="loadOrgs()">↺ Refresh</button>
+    </div>
+    <div id="orgs-container">
+      <div class="loading"><div class="spinner"></div> Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal-overlay" id="create-modal">
+  <div class="modal">
+    <div class="modal-title">New Organization</div>
+    <div class="modal-sub">Create a new NEXUS organization account</div>
+
+    <div class="form-row">
+      <label class="form-label">Company Name *</label>
+      <input type="text" class="form-input" id="f-name" placeholder="ABC Trucking LLC">
+    </div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Slug *</label>
+        <input type="text" class="form-input" id="f-slug" placeholder="abc-trucking">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Plan</label>
+        <select class="form-select" id="f-plan">
+          <option value="free">Free</option>
+          <option value="basic">Basic</option>
+          <option value="pro">Pro</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:16px"></div>
+    <div class="form-row">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-input" id="f-email" placeholder="info@abctrucking.com">
+    </div>
+    <div class="form-row-2">
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Phone</label>
+        <input type="text" class="form-input" id="f-phone" placeholder="215-000-0000">
+      </div>
+      <div class="form-row" style="margin-bottom:0">
+        <label class="form-label">Access Code</label>
+        <input type="text" class="form-input" id="f-pass" placeholder="e.g. abc2026">
+      </div>
+    </div>
+    <div style="margin-bottom:16px"></div>
+    <div class="form-row">
+      <label class="form-label">Address</label>
+      <input type="text" class="form-input" id="f-address" placeholder="123 Main St, Philadelphia PA 19100">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-outline" style="flex:1" onclick="closeCreateModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" onclick="createOrg()">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="2"><path d="M8 2v12M2 8h12"/></svg>
+        Create Organization
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+const ADMIN_PASS = 'Nexus102030$%';
+
+const $ = id => document.getElementById(id);
+let toastT;
+function toast(msg, err) {
+  const el = $('toast-el');
+  el.textContent = msg;
+  el.style.background = err ? '#DC2626' : '#059669';
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────
+function doAuth() {
+  const val = $('auth-input').value;
+  if (val === ADMIN_PASS) {
+    sessionStorage.setItem('nexus-admin', '1');
+    $('auth-screen').style.display = 'none';
+    $('main-screen').style.display = 'flex';
+    loadOrgs();
+  } else {
+    $('auth-err').textContent = 'Invalid password';
+    $('auth-input').value = '';
+    $('auth-input').focus();
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('nexus-admin');
+  $('main-screen').style.display = 'none';
+  $('auth-screen').style.display = 'flex';
+  $('auth-input').value = '';
+}
+
+// ── SUPABASE ──────────────────────────────────────────────────────────
+async function sbFetch(table, query) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbInsert(table, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbPatch(table, query, body) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+// ── LOAD ORGS ─────────────────────────────────────────────────────────
+async function loadOrgs() {
+  $('orgs-container').innerHTML = '<div class="loading"><div class="spinner"></div> Loading…</div>';
+  try {
+    const orgs = await sbFetch('organizations', 'order=created_at.desc&select=*');
+    $('stat-total').textContent  = orgs.length;
+    $('stat-active').textContent = orgs.filter(o => o.active).length;
+    renderOrgs(orgs);
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+    $('orgs-container').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">${e.message}</div></div>`;
+  }
+}
+
+function renderOrgs(orgs) {
+  if (!orgs.length) {
+    $('orgs-container').innerHTML = '<div class="empty"><div class="empty-icon">🏢</div><div class="empty-title">No organizations yet</div><p>Create your first organization</p></div>';
+    return;
+  }
+  $('orgs-container').innerHTML = `<div class="orgs-grid">${orgs.map(o => `
+    <div class="org-card${o.active ? '' : ' inactive'}">
+      <div class="oc-head">
+        <div>
+          <div class="oc-name">${o.name}</div>
+          <div class="oc-slug">/${o.slug||'—'}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+          <span class="oc-badge ${o.active ? 'badge-active' : 'badge-inactive'}">
+            ${o.active ? '● Active' : '○ Inactive'}
+          </span>
+          <span class="oc-badge badge-plan">${(o.plan||'free').toUpperCase()}</span>
+        </div>
+      </div>
+      <div class="oc-info">
+        ${o.email ? `<div class="oc-info-row"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="1.5"><path d="M2 4h12v8H2z"/><path d="M2 4l6 5 6-5"/></svg>${o.email}</div>` : ''}
+        ${o.phone ? `<div class="oc-info-row"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="1.5"><path d="M3 2h3l1 3-2 1a9 9 0 004 4l1-2 3 1v3a1 1 0 01-1 1C6 13 3 7 3 3a1 1 0 010-1z"/></svg>${o.phone}</div>` : ''}
+        ${o.address ? `<div class="oc-info-row"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="1.5"><path d="M8 2a4 4 0 000 8c2 0 4-3 4-4a4 4 0 00-4-4z"/><path d="M8 14s-5-4-5-7"/></svg>${o.address}</div>` : ''}
+        <div class="oc-info-row" style="color:var(--text3);font-size:11px">
+          Created: ${new Date(o.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+        </div>
+      </div>
+      <div class="oc-actions">
+        <button class="btn btn-primary btn-sm" onclick="enterOrg('${o.id}','${o.name}','${o.slug||''}')">
+          <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="2"><path d="M6 3l6 5-6 5"/></svg>
+          Enter
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="toggleActive('${o.id}',${o.active})">
+          ${o.active ? 'Deactivate' : 'Activate'}
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="copyId('${o.id}')" title="Copy org ID" style="margin-left:auto">
+          <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
+          ID
+        </button>
+      </div>
+      <div class="oc-id">${o.id}</div>
+    </div>
+  `).join('')}</div>`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────
+function enterOrg(id, name, slug) {
+  sessionStorage.setItem('nexus-org-id',   id);
+  sessionStorage.setItem('nexus-org-name', name);
+  sessionStorage.setItem('nexus-org-slug', slug);
+  // Redirect to settlements for this org
+  window.location.href = 'nexus-tms-settlement-v3.html';
+}
+
+async function toggleActive(id, current) {
+  try {
+    await sbPatch('organizations', `id=eq.${id}`, { active: !current });
+    toast(current ? 'Organization deactivated' : 'Organization activated');
+    loadOrgs();
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+
+function copyId(id) {
+  navigator.clipboard.writeText(id).then(() => toast('Org ID copied'));
+}
+
+// ── CREATE ────────────────────────────────────────────────────────────
+function openCreateModal() {
+  ['f-name','f-slug','f-email','f-phone','f-address','f-pass'].forEach(id => $(id).value = '');
+  $('create-modal').classList.add('open');
+  $('f-name').focus();
+}
+
+function closeCreateModal() {
+  $('create-modal').classList.remove('open');
+}
+
+// Auto-generate slug from name
+$('f-name').addEventListener('input', function() {
+  $('f-slug').value = this.value.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g,'')
+    .trim().replace(/\s+/g,'-');
+});
+
+async function createOrg() {
+  const name    = $('f-name').value.trim();
+  const slug    = $('f-slug').value.trim();
+  const email   = $('f-email').value.trim();
+  const phone   = $('f-phone').value.trim();
+  const address = $('f-address').value.trim();
+  const plan    = $('f-plan').value;
+  const pass    = $('f-pass').value.trim();
+
+  if (!name || !slug) { toast('Name and slug are required', true); return; }
+
+  try {
+    const payload = { name, slug, email, phone, address, plan, active: true };
+    if (pass) payload.password = pass; // store if column exists
+    await sbInsert('organizations', payload);
+    toast('✓ Organization created');
+    closeCreateModal();
+    loadOrgs();
+  } catch(e) {
+    // Try without password field if column doesn't exist
+    try {
+      await sbInsert('organizations', { name, slug, email, phone, address, plan, active: true });
+      toast('✓ Organization created');
+      closeCreateModal();
+      loadOrgs();
+    } catch(e2) {
+      toast('Error: ' + e2.message, true);
+    }
+  }
+}
+
+// Close modal on overlay click
+$('create-modal').addEventListener('click', e => { if(e.target === $('create-modal')) closeCreateModal(); });
+
+// ── INIT ──────────────────────────────────────────────────────────────
+if (sessionStorage.getItem('nexus-admin') === '1') {
+  $('auth-screen').style.display = 'none';
+  $('main-screen').style.display = 'flex';
+  loadOrgs();
+} else {
+  setTimeout(() => $('auth-input').focus(), 100);
+}
+</script>
+</body>
+</html>
