@@ -218,6 +218,9 @@ select.inline-sel:focus{border-color:var(--blue)}
       <a class="nav-item active" href="nexus-tms-settlement-v3.html">
         <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
       </a>
+      <a class="nav-item" href="nexus-tms-history.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>History
+      </a>
     </div>
     <div class="nav-section">
       <div class="nav-section-label">Management</div>
@@ -404,6 +407,23 @@ async function sbFetch(table, params='') {
   if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
   return r.json();
 }
+
+async function sbUpsert(table, payload) {
+  const body = Array.isArray(payload) ? payload : [payload];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=minimal',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) { const e = await r.text(); throw new Error(e); }
+}
+
+const db = { upsert: sbUpsert };
 
 // ══════════════════════════════════════════════════════════════════════
 // INIT
@@ -856,6 +876,66 @@ function truckTypeBadge(type) {
 function generateSettlements() {
   renderStep3();
   goToStep(3);
+  saveSettlementsToDb();
+}
+
+async function saveSettlementsToDb() {
+  const pFrom = document.getElementById('period-from').value;
+  const pTo   = document.getElementById('period-to').value;
+
+  const rows = S.assigns.map(a => {
+    const s    = calcSettlement(a);
+    const adjs = (adjState[S.assigns.indexOf(a)] || []).filter(Boolean);
+    const adjTotal = adjs.reduce((sum,x) => sum+(x.amt||0), 0);
+    return {
+      id: crypto.randomUUID(),
+      org_id: ORG_ID,
+      settle_id: a.settlId,
+      week_start: pFrom,
+      week_end: pTo,
+      driver_name: a.driverName,
+      driver_id: a.driverObj?.id || null,
+      truck_unit: a.truckObj?.unit || a.truck,
+      truck_id: a.truckObj?.id || null,
+      driver_type: s.dType,
+      gross: Math.round(a.gross * 100) / 100,
+      dispatch_pct: s.dispatchPct,
+      dispatch_amt: Math.round(s.dispatchAmt * 100) / 100,
+      deductions: {
+        company_cut: s.companyCutAmt,
+        ezpass: s.ezpassAmt,
+        fuel: s.fuelAmt,
+        prepass: s.prepassAmt,
+        tablet: s.tabletAmt,
+        insurance: s.insuranceAmt,
+        physdmg: s.physdmgAmt,
+        ifta: s.iftaAmt,
+        admin: s.adminAmt,
+        trailerrent: s.trailerrentAmt,
+        samsara: s.samsaraAmt,
+        truck_payment: s.truckPayment,
+        driver_pay: s.ctDriverAmt,
+      },
+      deductions_total: Math.round(s.totalDeductions * 100) / 100,
+      driver_pay_pct: s.ctDriverPct || s.payRate,
+      driver_pay_amt: Math.round(s.ctDriverAmt * 100) / 100,
+      manual_adjustments: adjs,
+      net_pay: Math.round((s.net + adjTotal) * 100) / 100,
+      is_ct_driver_stmt: false,
+      invoice_id: S.invoice.invoice_id || null,
+      loads_count: a.loads.length,
+      miles: Math.round(a.miles * 10) / 10,
+      status: 'generated',
+    };
+  });
+
+  try {
+    await db.upsert('settlements', rows);
+    toast(`${rows.length} statement${rows.length>1?'s':''} saved to history`);
+  } catch(e) {
+    console.error('Save settlements error:', e);
+    toast('Saved locally — DB write failed', true);
+  }
 }
 
 function calcSettlement(assign) {
