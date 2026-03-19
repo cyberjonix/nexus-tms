@@ -466,11 +466,10 @@ async function restoreSession() {
     if (!s.access_token || !s.org_id) return false;
     _jwt   = s.access_token;
     _orgId = s.org_id;
-    // Check if token is expired (exp claim)
+    // Check token expiry
     try {
       const payload = JSON.parse(atob(_jwt.split('.')[1]));
-      if (payload.exp && payload.exp < Math.floor(Date.now()/1000)) {
-        // Try refresh
+      if (payload.exp && payload.exp < Math.floor(Date.now()/1000) + 60) {
         const refreshed = await refreshSession();
         if (!refreshed) { sessionStorage.removeItem('nx-session'); return false; }
       }
@@ -517,7 +516,8 @@ const API = SUPABASE_URL + '/rest/v1';
 
 const db = {
   async select(table, params) {
-    const r = await fetch(API + '/' + table + '?' + params, { headers: authHeaders() });
+    const r = await fetch(API + '/' + table + '?' + (params||''), { headers: authHeaders() });
+    if (r.status === 401) { sessionStorage.removeItem('nx-session'); window.location.href = 'nexus-tms-settlement-v3.html'; throw new Error('Session expired'); }
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   },
@@ -559,10 +559,7 @@ function ini(d) { return ((d.first || '?')[0] + (d.last || '?')[0]).toUpperCase(
 function fullName(d) { return d.first + ' ' + d.last; }
 function setTab(t, el) { activeTab = t; document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); el.classList.add('active'); renderTable(); }
 function loading(on) { const lb = document.getElementById('loading-bar'); if (lb) lb.classList.toggle('active', on); }
-function setDbStatus(ok, msg) {
-  document.getElementById('db-dot').className = 'db-dot ' + (ok ? 'connected' : 'error');
-  document.getElementById('db-status').textContent = msg;
-}
+function setDbStatus(ok, msg) { const el = document.getElementById('db-status'); if (el) { el.textContent = msg; el.className = 'db-status ' + (ok ? 'ok' : 'err'); } }
 function showToast(msg, err) {
   const t = document.getElementById('toast');
   t.textContent = msg;

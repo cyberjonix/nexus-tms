@@ -458,7 +458,8 @@ async function checkAuth() {
     _orgId = org.id;
     // Persist session
     sessionStorage.setItem('nx-session', JSON.stringify({
-      access_token: _jwt, org_id: _orgId,
+      access_token: _jwt,
+      refresh_token: session.refresh_token || '', org_id: _orgId,
       org_name: org.name, org_email: org.email
     }));
     sessionStorage.setItem('nexus-org-id',   _orgId);
@@ -958,7 +959,9 @@ async function processStep1() {
     }
   });
   S.assigns = Object.values(mergedMap);
-  // Re-number settlIds (before street loads - will re-number again after)
+  // Filter out assigns with zero gross (trip in CSV but not matched in invoice)
+  S.assigns = S.assigns.filter(a => a.gross > 0);
+  // Re-number settlIds
   S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
   // Fetch PAID street loads for the period and merge into assigns
@@ -1015,11 +1018,6 @@ async function processStep1() {
   } catch(e) {
     console.warn('Street loads fetch error:', e.message);
   }
-
-  // Final filter: remove assigns with zero gross (not in invoice and no street loads)
-  S.assigns = S.assigns.filter(a => a.gross > 0);
-  // Final re-number settlIds
-  S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
   } catch(e) { console.error('processStep1 error:', e); toast('Error: ' + e.message); return; }
   generateSettlements();
