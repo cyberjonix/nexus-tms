@@ -579,13 +579,12 @@ function setDbStatus(ok, msg) { const el = document.getElementById('db-status');
 async function loadAll() {
   loading(true);
   try {
-    const [t, tr, d] = await Promise.all([
+    const [t, d] = await Promise.all([
       db.select('trucks', `org_id=eq.${_orgId}&order=unit`),
-      db.select('trailers', `org_id=eq.${_orgId}&order=num`),
       db.select('drivers', `org_id=eq.${_orgId}&status=eq.active&order=last`)
     ]);
     trucks = t.map(normTruck);
-    trailers = tr;
+    trailers = [];
     drivers = d;
     setDbStatus(true, 'Connected');
     renderTable();
