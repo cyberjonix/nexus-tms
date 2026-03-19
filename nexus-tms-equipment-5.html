@@ -197,6 +197,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 </style>
 </head>
 <body>
+<div class="loading-bar" id="loading-bar"></div>
 
 <div id="auth-wall" style="display:none">
   <div class="auth-box">
@@ -529,7 +530,7 @@ let modalMode = 'truck', activeTab = 'all', importRows = [];
 function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
 function ini(n) { if (!n) return '?'; return n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); }
 function setTab(t, el) { activeTab = t; document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); el.classList.add('active'); renderTable(); }
-function loading(on) { document.getElementById('loading-bar').classList.toggle('active', on); }
+function loading(on) { const lb = document.getElementById('loading-bar'); if (lb) lb.classList.toggle('active', on); }
 function showToast(msg, err = false) {
   const t = document.getElementById('toast');
   t.textContent = msg;

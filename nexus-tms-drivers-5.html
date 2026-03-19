@@ -183,6 +183,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 </style>
 </head>
 <body>
+<div class="loading-bar" id="loading-bar"></div>
 
 <div id="auth-wall" style="display:none">
   <div class="auth-box">
@@ -522,7 +523,7 @@ function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
 function ini(d) { return ((d.first || '?')[0] + (d.last || '?')[0]).toUpperCase(); }
 function fullName(d) { return d.first + ' ' + d.last; }
 function setTab(t, el) { activeTab = t; document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); el.classList.add('active'); renderTable(); }
-function loading(on) { document.getElementById('loading-bar').classList.toggle('active', on); }
+function loading(on) { const lb = document.getElementById('loading-bar'); if (lb) lb.classList.toggle('active', on); }
 function setDbStatus(ok, msg) {
   document.getElementById('db-dot').className = 'db-dot ' + (ok ? 'connected' : 'error');
   document.getElementById('db-status').textContent = msg;
