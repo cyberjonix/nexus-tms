@@ -59,6 +59,7 @@ th.r,td.r{text-align:right}
 td{font-size:13px;padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text)}
 tr:last-child td{border-bottom:none}
 .clickable-row{cursor:pointer;transition:background .1s}.clickable-row:hover td{background:#EBF2FF}
+.del-btn{background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer;transition:all .15s}.del-btn:hover{background:var(--red);color:#fff;border-color:var(--red)}
 .mono{font-family:var(--mono);font-size:12px}
 .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
 .badge-P{background:#ECFDF5;color:#065F46}.badge-POO{background:#EFF6FF;color:#1E40AF}
@@ -213,10 +214,12 @@ async function restoreSession() {
   if (!stored) return false;
   try {
     const s = JSON.parse(stored);
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + s.access_token }
-    });
-    if (!r.ok) { sessionStorage.removeItem('nx-session'); return false; }
+    if (!s.access_token || !s.org_id) return false;
+    _jwt   = s.access_token;
+    _orgId = s.org_id;
+    return true;
+  } catch(e) { return false; }
+}
     _jwt   = s.access_token;
     _orgId = s.org_id;
     return true;
@@ -323,10 +326,13 @@ function renderTable(rows){
       <td class="r mono" style="color:var(--red)">−$${fmt(r.deductions_total)}</td>
       <td class="r mono green">$${fmt(r.net_pay)}</td>
       <td class="period-cell">${r.loads_count||0} loads &rsaquo;</td>
+      <td onclick="event.stopPropagation()">
+        <button class="del-btn" onclick="deleteStatement('${r.id}','${(r.driver_name||'').replace(/'/g,'')}',event)" title="Delete">✕</button>
+      </td>
     </tr>`).join('');
   document.getElementById('table-body').innerHTML=`
     <table>
-      <thead><tr><th>ID</th><th>Period</th><th>Driver</th><th>Unit</th><th>Type</th><th class="r">Gross</th><th class="r">Deductions</th><th class="r">Net Pay</th><th>Loads</th></tr></thead>
+      <thead><tr><th>ID</th><th>Period</th><th>Driver</th><th>Unit</th><th>Type</th><th class="r">Gross</th><th class="r">Deductions</th><th class="r">Net Pay</th><th>Loads</th><th></th></tr></thead>
       <tbody>${tbody}</tbody>
     </table>`;
 }
@@ -358,6 +364,22 @@ function openStatement(idx){
     });
   };
   document.getElementById('stmt-modal').style.display='flex';
+}
+
+async function deleteStatement(id, driverName, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Delete statement for ' + driverName + '? This cannot be undone.')) return;
+  try {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/settlements?id=eq.' + id, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (!r.ok) throw new Error('Delete failed: ' + r.status);
+    toast('Statement deleted');
+    loadHistory();
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
 }
 
 function closeModal(){document.getElementById('stmt-modal').style.display='none';}

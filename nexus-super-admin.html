@@ -374,6 +374,9 @@ function renderOrgs(orgs) {
           <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 16 16" stroke-width="1.5"><rect x="5" y="5" width="9" height="9" rx="1"/><path d="M3 11H2a1 1 0 01-1-1V2a1 1 0 011-1h8a1 1 0 011 1v1"/></svg>
           ID
         </button>
+        <button class="btn btn-sm" style="color:var(--red);border:1px solid var(--red);background:none;padding:3px 10px;font-size:11px;border-radius:4px;cursor:pointer;margin-left:4px" onclick="deleteOrg('${o.id}','${o.name}')">
+          Delete
+        </button>
       </div>
       <div class="oc-id">${o.id}</div>
     </div>
@@ -479,6 +482,26 @@ if (sessionStorage.getItem('nexus-admin') === '1') {
 } else {
   setTimeout(() => $('auth-input').focus(), 100);
 }
+
+async function deleteOrg(id, name) {
+  if (!confirm('Delete "' + name + '"?\nRequires org credentials to authenticate.')) return;
+  const email = prompt('Org email:');
+  const pw    = prompt('Org password:');
+  if (!email || !pw) { toast('Cancelled'); return; }
+  try {
+    const sess = await signIn(email, pw);
+    const r = await fetch(SUPABASE_URL + '/rest/v1/organizations?id=eq.' + id, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + sess.access_token, 'Content-Type': 'application/json' }
+    });
+    if (!r.ok) throw new Error('Delete failed: ' + r.status);
+    toast('Organization deleted');
+    loadOrgs();
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+}
+
 </script>
 </body>
 </html>

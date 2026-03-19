@@ -926,6 +926,26 @@ async function processStep1() {
     };
   });
 
+  // Deduplicate assigns: merge same driver+truck (handles minor CSV inconsistencies)
+  const mergedMap = {};
+  S.assigns.forEach(a => {
+    const key = (a.truck || 'UNKNOWN') + '|' + (a.driverName || '').toLowerCase().trim();
+    if (!mergedMap[key]) {
+      mergedMap[key] = a;
+    } else {
+      // Merge loads and recalculate
+      mergedMap[key].loads = mergedMap[key].loads.concat(a.loads);
+      mergedMap[key].gross += a.gross;
+      mergedMap[key].miles += a.miles;
+      // Keep the one that has truckObj/driverObj
+      if (!mergedMap[key].truckObj && a.truckObj) mergedMap[key].truckObj = a.truckObj;
+      if (!mergedMap[key].driverObj && a.driverObj) mergedMap[key].driverObj = a.driverObj;
+    }
+  });
+  S.assigns = Object.values(mergedMap);
+  // Re-number settlIds
+  S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
+
   // Fetch PAID street loads for the period and merge into assigns
   const pFrom = document.getElementById('period-from').value;
   const pTo   = document.getElementById('period-to').value;

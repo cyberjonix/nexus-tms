@@ -998,14 +998,17 @@ window.authSubmit = async function() {
 // -- INIT --
 (async function(){
   const ok = await restoreSession();
+  const wall = document.getElementById('auth-wall');
+  const sb   = document.getElementById('app-sidebar');
   if (ok) {
-    const wall = document.getElementById('auth-wall');
     if (wall) wall.style.display = 'none';
-    const sb = document.getElementById('app-sidebar');
-    if (sb) sb.style.display = '';
+    if (sb)   sb.style.display   = '';
     loadAll();
+  } else {
+    if (wall) wall.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('auth-email-input')?.focus(), 100);
   }
-  // If not ok — auth-wall stays visible (user must sign in)
 })();
 </script>
 </body>
