@@ -898,8 +898,18 @@ async function processStep1() {
     driverTruckFallback[driver] = Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
   });
 
+  // Build invoice lookup sets for fast membership check
+  const invoiceTripIds = new Set(Object.keys(tourByTrip));
+  const invoiceLoadIds = new Set(Object.keys(invByLoad));
+
+  // Filter trips: only keep those with payment in invoice (by trip_id OR load_id)
+  const paidTrips = S.trips.filter(t =>
+    (t.trip_id && invoiceTripIds.has(t.trip_id)) ||
+    (t.load_id && invoiceLoadIds.has(t.load_id))
+  );
+
   byTruck = {};
-  S.trips.forEach(t => {
+  paidTrips.forEach(t => {
     const driverName = t.driver || '';
     // Check DTH: was this driver on a different truck on this date?
     const dthRecord = dthTruckForDriver(driverName, t.pickup_date || t.delivery_date);
@@ -959,8 +969,6 @@ async function processStep1() {
     }
   });
   S.assigns = Object.values(mergedMap);
-  // Filter out assigns with zero gross (trip in CSV but not matched in invoice)
-  S.assigns = S.assigns.filter(a => a.gross > 0);
   // Re-number settlIds
   S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
@@ -1018,6 +1026,11 @@ async function processStep1() {
   } catch(e) {
     console.warn('Street loads fetch error:', e.message);
   }
+
+  // Final filter: remove zero-gross assigns (not in invoice, no street loads)
+  S.assigns = S.assigns.filter(a => a.gross > 0);
+  // Final re-number
+  S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
   } catch(e) { console.error('processStep1 error:', e); toast('Error: ' + e.message); return; }
   generateSettlements();
