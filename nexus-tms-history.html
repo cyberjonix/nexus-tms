@@ -217,9 +217,44 @@ async function restoreSession() {
     if (!s.access_token || !s.org_id) return false;
     _jwt   = s.access_token;
     _orgId = s.org_id;
+    // Check if token is expired (exp claim)
+    try {
+      const payload = JSON.parse(atob(_jwt.split('.')[1]));
+      if (payload.exp && payload.exp < Math.floor(Date.now()/1000)) {
+        // Try refresh
+        const refreshed = await refreshSession();
+        if (!refreshed) { sessionStorage.removeItem('nx-session'); return false; }
+      }
+    } catch(e) {}
     return true;
   } catch(e) { return false; }
 }
+
+async function refreshSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    if (!s.refresh_token) return false;
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    _jwt = d.access_token;
+    _orgId = s.org_id;
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: d.access_token,
+      refresh_token: d.refresh_token,
+      org_id: s.org_id,
+      org_name: s.org_name
+    }));
+    return true;
+  } catch(e) { return false; }
+}
+
     _jwt   = s.access_token;
     _orgId = s.org_id;
     return true;
