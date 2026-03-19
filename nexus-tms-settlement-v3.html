@@ -958,9 +958,7 @@ async function processStep1() {
     }
   });
   S.assigns = Object.values(mergedMap);
-  // Filter out assigns with zero gross (trip in CSV but not matched in invoice)
-  S.assigns = S.assigns.filter(a => a.gross > 0);
-  // Re-number settlIds
+  // Re-number settlIds (before street loads - will re-number again after)
   S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
   // Fetch PAID street loads for the period and merge into assigns
@@ -1017,6 +1015,11 @@ async function processStep1() {
   } catch(e) {
     console.warn('Street loads fetch error:', e.message);
   }
+
+  // Final filter: remove assigns with zero gross (not in invoice and no street loads)
+  S.assigns = S.assigns.filter(a => a.gross > 0);
+  // Final re-number settlIds
+  S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
   } catch(e) { console.error('processStep1 error:', e); toast('Error: ' + e.message); return; }
   generateSettlements();
