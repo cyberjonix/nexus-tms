@@ -884,13 +884,28 @@ async function processStep1() {
 
   // ── Build assignments, splitting by truck if driver switched mid-week ─
   // Key = truck_unit + '|' + driver_name so same driver on 2 trucks = 2 statements
+  // Pre-compute dominant truck per driver (most common non-empty truck in CSV)
+  const driverDominantTruck = {};
+  S.trips.forEach(t => {
+    if (t.truck && t.driver) {
+      if (!driverDominantTruck[t.driver]) driverDominantTruck[t.driver] = {};
+      driverDominantTruck[t.driver][t.truck] = (driverDominantTruck[t.driver][t.truck] || 0) + 1;
+    }
+  });
+  const driverTruckFallback = {};
+  Object.entries(driverDominantTruck).forEach(([driver, counts]) => {
+    driverTruckFallback[driver] = Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
+  });
+
   byTruck = {};
   S.trips.forEach(t => {
     const driverName = t.driver || '';
     // Check DTH: was this driver on a different truck on this date?
     const dthRecord = dthTruckForDriver(driverName, t.pickup_date || t.delivery_date);
-    // Use DTH truck if available, else fall back to CSV truck field
-    const truckKey = (dthRecord ? dthRecord.truck_unit : t.truck) || t.truck || 'UNKNOWN';
+    // Use DTH truck if available, else CSV truck, else dominant truck for this driver, else UNKNOWN
+    const truckKey = (dthRecord ? dthRecord.truck_unit : t.truck)
+      || driverTruckFallback[driverName]
+      || 'UNKNOWN';
     const key = truckKey + '|' + driverName;
     if (!byTruck[key]) byTruck[key] = { truck: truckKey, driver: driverName, loads: [], dthSplit: !!dthRecord };
     byTruck[key].loads.push(t);
@@ -943,6 +958,8 @@ async function processStep1() {
     }
   });
   S.assigns = Object.values(mergedMap);
+  // Filter out assigns with zero gross (trip in CSV but not matched in invoice)
+  S.assigns = S.assigns.filter(a => a.gross > 0);
   // Re-number settlIds
   S.assigns.forEach((a, i) => { a.settlId = String(i + 1).padStart(4, '0'); });
 
