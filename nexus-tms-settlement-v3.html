@@ -802,7 +802,7 @@ function parseInvoice(rows) {
     detention:      num(r['Detention']     || r['detention']     || 0),
     tonu:           num(r['TONU']          || r['tonu']          || 0),
     gross_pay:      num(r['Gross Pay']     || r['gross_pay']     || 0),
-  })).filter(r => r.gross_pay !== 0);
+  })).filter(r => r.gross_pay !== 0 && (r.trip_id || r.load_id));
   const invId = rows[0] ? str(rows[0]['Invoice Number'] || rows[0]['invoice_number'] || '') : '';
   return { invoice_id: invId, rows: payments, total: payments.reduce((a,r)=>a+r.gross_pay,0) };
 }
@@ -898,18 +898,8 @@ async function processStep1() {
     driverTruckFallback[driver] = Object.entries(counts).sort((a,b) => b[1]-a[1])[0][0];
   });
 
-  // Build invoice lookup sets for fast membership check
-  const invoiceTripIds = new Set(Object.keys(tourByTrip));
-  const invoiceLoadIds = new Set(Object.keys(invByLoad));
-
-  // Filter trips: only keep those with payment in invoice (by trip_id OR load_id)
-  const paidTrips = S.trips.filter(t =>
-    (t.trip_id && invoiceTripIds.has(t.trip_id)) ||
-    (t.load_id && invoiceLoadIds.has(t.load_id))
-  );
-
   byTruck = {};
-  paidTrips.forEach(t => {
+  S.trips.forEach(t => {
     const driverName = t.driver || '';
     // Check DTH: was this driver on a different truck on this date?
     const dthRecord = dthTruckForDriver(driverName, t.pickup_date || t.delivery_date);
