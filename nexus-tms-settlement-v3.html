@@ -1351,7 +1351,7 @@ function buildSettleCard(a, i, period) {
       <td style="font-size:11px;color:var(--text3)">${l.date || ''}</td>
       <td style="font-size:12px"><strong>${fc(l.origin)}</strong> → <strong>${fc(l.destination)}</strong></td>
       <td class="r" style="font-family:var(--mono)">${Math.round(l.miles)}</td>
-      <td class="r" style="font-family:var(--mono);color:var(--green);font-weight:600">$${fmt(l.gross)}</td>
+      <td class="r" style="font-family:var(--mono);font-weight:600">$${fmt(l.gross)}</td>
     </tr>`).join('');
 
   // Build deduction rows
@@ -1526,7 +1526,7 @@ function printSettlement(i) {
       <td style="color:#94A3B8">${l.date||''}</td>
       <td>${fc(l.origin)} → ${fc(l.destination)}</td>
       <td style="text-align:right;color:#64748B">${Math.round(l.miles)}</td>
-      <td style="text-align:right;font-weight:700;color:#059669">$${fmt(l.gross)}</td>
+      <td style="text-align:right;font-weight:700;color:#0D1829">$${fmt(l.gross)}</td>
     </tr>`
   ).join('');
 
@@ -1592,7 +1592,7 @@ function printSettlement(i) {
           2100 Grant Ave, Apt 10<br>
           Philadelphia, PA 19115<br>
           272-372-0000<br>
-          jnson@ya.ru
+          ztatransportation@gmail.com
         </div>
       </div>
     </div>
