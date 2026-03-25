@@ -577,26 +577,31 @@ function setConnStatus(state, txt) {
 // PERIOD
 // ══════════════════════════════════════════════════════════════════════
 function setLastWeek() {
+  // Amazon week: Sunday→Saturday
   const today = new Date();
-  const dow   = today.getDay(); // 0=Sun
-  // Last Sat–Fri
-  const lastFri = new Date(today);
-  lastFri.setDate(today.getDate() - ((dow + 2) % 7 + 1));
-  const lastSat = new Date(lastFri);
-  lastSat.setDate(lastFri.getDate() - 6);
-  document.getElementById('period-from').value = fmtDateInput(lastSat);
-  document.getElementById('period-to').value   = fmtDateInput(lastFri);
+  const dow = today.getDay(); // 0=Sun
+  // Last Saturday (end of previous week)
+  const lastSat = new Date(today);
+  lastSat.setDate(today.getDate() - dow - 1);
+  // Last Sunday (start of previous week)
+  const lastSun = new Date(lastSat);
+  lastSun.setDate(lastSat.getDate() - 6);
+  document.getElementById('period-from').value = fmtDateInput(lastSun);
+  document.getElementById('period-to').value   = fmtDateInput(lastSat);
   updateWeekLabel();
 }
 function setThisWeek() {
+  // Amazon week: Sunday→Saturday
   const today = new Date();
-  const dow   = today.getDay();
-  const sat   = new Date(today);
-  sat.setDate(today.getDate() - ((dow + 1) % 7));
-  const fri   = new Date(sat);
-  fri.setDate(sat.getDate() + 6);
-  document.getElementById('period-from').value = fmtDateInput(sat);
-  document.getElementById('period-to').value   = fmtDateInput(fri);
+  const dow = today.getDay(); // 0=Sun
+  // This Sunday (start of current week)
+  const sun = new Date(today);
+  sun.setDate(today.getDate() - dow);
+  // This Saturday (end of current week)
+  const sat = new Date(sun);
+  sat.setDate(sun.getDate() + 6);
+  document.getElementById('period-from').value = fmtDateInput(sun);
+  document.getElementById('period-to').value   = fmtDateInput(sat);
   updateWeekLabel();
 }
 function fmtDateInput(d) {
@@ -1173,7 +1178,21 @@ async function saveSettlementsToDb() {
   const pFrom = document.getElementById('period-from').value;
   const pTo   = document.getElementById('period-to').value;
 
+  // Fetch current max settle_id from DB to continue numbering
+  let nextSettleNum = 1;
+  try {
+    const existing = await sbFetch('settlements',
+      `org_id=eq.${_orgId}&select=settle_id&order=settle_id.desc&limit=1`);
+    if (existing.length && existing[0].settle_id) {
+      const maxNum = parseInt(existing[0].settle_id, 10);
+      if (!isNaN(maxNum)) nextSettleNum = maxNum + 1;
+    }
+  } catch(e) { console.warn('Could not fetch max settle_id:', e.message); }
 
+  // Re-number assigns from DB max
+  S.assigns.forEach((a, i) => {
+    a.settlId = String(nextSettleNum + i).padStart(4, '0');
+  });
 
   const rows = await Promise.all(S.assigns.map(async a => {
     const s    = calcSettlement(a);
@@ -1348,8 +1367,8 @@ function buildSettleCard(a, i, period) {
         <span style="font-family:var(--mono);font-size:11px">${l.id}</span>
         ${l.type==='tour' ? `<span class="tour-badge">Tour×${l.legs.length}</span>` : ''}
       </td>
-      <td style="font-size:11px;color:var(--text3)">${l.date || ''}</td>
-      <td style="font-size:12px"><strong>${fc(l.origin)}</strong> → <strong>${fc(l.destination)}</strong></td>
+      <td style="font-size:11px;color:var(--text2)">${l.date || ''}</td>
+      <td style="font-size:12px"><strong>${fcCity(l.origin)} → ${fcCity(l.destination)}</strong></td>
       <td class="r" style="font-family:var(--mono)">${Math.round(l.miles)}</td>
       <td class="r" style="font-family:var(--mono);font-weight:600">$${fmt(l.gross)}</td>
     </tr>`).join('');
@@ -1523,7 +1542,7 @@ function printSettlement(i) {
   const loadsRows = a.loads.map(l =>
     `<tr>
       <td style="color:#64748B">${l.id}${l.type==='tour'?' <span style="color:#1A56DB;font-weight:600">Tour×'+l.legs.length+'</span>':''}${l.is_street?' <span style="color:#D97706;font-weight:600;font-size:9px">STREET</span>':''}</td>
-      <td style="color:#94A3B8">${l.date||''}</td>
+      <td style="color:#4A5568">${l.date||''}</td>
       <td>${fc(l.origin)} → ${fc(l.destination)}</td>
       <td style="text-align:right;color:#64748B">${Math.round(l.miles)}</td>
       <td style="text-align:right;font-weight:700;color:#0D1829">$${fmt(l.gross)}</td>
@@ -1533,43 +1552,43 @@ function printSettlement(i) {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
     *{box-sizing:border-box}
-    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:32px;color:#0D1829;font-size:13px;line-height:1.5}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:18px 28px;color:#0D1829;font-size:11px;line-height:1.4}
     /* HEADER */
-    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:18px;border-bottom:3px solid #0D1829;margin-bottom:24px}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:2px solid #0D1829;margin-bottom:14px}
     .header-left{flex:1}
     .header-right{text-align:right;min-width:190px}
-    .co-name{font-size:13px;font-weight:700;color:#0D1829;margin-bottom:5px}
-    .co-info{font-size:13px;color:#64748B;line-height:1.8}
-    .doc-label{font-size:26px;font-weight:800;color:#0D1829;letter-spacing:-0.5px;line-height:1}
-    .doc-label span{font-size:26px;font-weight:800;color:#0D1829}
+    .co-name{font-size:12px;font-weight:700;color:#0D1829;margin-bottom:3px}
+    .co-info{font-size:11px;color:#64748B;line-height:1.6}
+    .doc-label{font-size:20px;font-weight:800;color:#0D1829;letter-spacing:-0.5px;line-height:1}
+    .doc-label span{font-size:20px;font-weight:800;color:#0D1829}
     .doc-period{font-size:13px;color:#64748B;margin-top:4px}
     /* INFO ROWS */
-    .info-block{margin-top:14px;margin-bottom:0}
-    .info-row{display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid #F1F5F9}
+    .info-block{margin-top:8px;margin-bottom:0}
+    .info-row{display:flex;align-items:center;gap:10px;padding:2px 0;border-bottom:1px solid #F1F5F9}
     .info-lbl{font-size:13px;font-weight:400;color:#94A3B8;min-width:72px}
     .info-val{font-size:13px;font-weight:600;color:#0D1829}
     .badge{padding:2px 9px;border-radius:20px;font-size:13px;font-weight:600;background:#E0E7FF;color:#3730A3}
     /* SECTIONS */
-    .sec-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94A3B8;margin:20px 0 8px;padding-bottom:4px;border-bottom:1px solid #E2E8F0}
+    .sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94A3B8;margin:12px 0 5px;padding-bottom:3px;border-bottom:1px solid #E2E8F0}
     /* LOADS TABLE */
     table{width:100%;border-collapse:collapse}
-    .loads-tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94A3B8;padding:4px 8px;background:#F8F9FA;border-bottom:1px solid #E2E8F0;text-align:left}
+    .loads-tbl th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94A3B8;padding:3px 6px;background:#F8F9FA;border-bottom:1px solid #E2E8F0;text-align:left}
     .loads-tbl th:last-child,.loads-tbl td:last-child{text-align:right}
     .loads-tbl th:nth-child(4),.loads-tbl td:nth-child(4){text-align:right}
-    .loads-tbl td{font-size:11px;padding:5px 8px;border-bottom:1px solid #F1F5F9;color:#0D1829}
+    .loads-tbl td{font-size:10px;padding:3px 6px;border-bottom:1px solid #F1F5F9;color:#0D1829}
     .loads-tbl tr:last-child td{background:#F4F6FA;font-weight:700;border-bottom:none}
     /* DEDUCTIONS TABLE */
     .ded-tbl{width:100%;margin-bottom:4px;border-collapse:collapse}
-    .ded-tbl td{font-size:13px;padding:5px 0;color:#0D1829;border-bottom:1px solid #F8F9FA}
+    .ded-tbl td{font-size:10px;padding:3px 0;color:#0D1829;border-bottom:1px solid #F8F9FA}
     .dl{color:#4A5568;font-weight:400}
     .dv{text-align:right;font-weight:600}
     .dv.red{color:#DC2626}
     .dv.grn{color:#059669}
     .gross-row td{font-weight:700;border-bottom:2px solid #E2E8F0;padding-bottom:8px;margin-bottom:4px}
     /* NET */
-    .net-row{margin-top:14px;padding:14px 0;border-top:3px solid #0D1829;display:flex;justify-content:space-between;align-items:center}
+    .net-row{margin-top:8px;padding:8px 0;border-top:2px solid #0D1829;display:flex;justify-content:space-between;align-items:center}
     .net-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#0D1829}
-    .net-val{font-size:26px;font-weight:800;color:#059669}
+    .net-val{font-size:20px;font-weight:800;color:#059669}
     /* FOOTER */
     .footer{margin-top:24px;padding-top:10px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#94A3B8}
     .footer-inv{font-size:10px;color:#CBD5E1;font-family:monospace}
@@ -1589,10 +1608,8 @@ function printSettlement(i) {
       <div class="header-right">
         <div class="co-name">ZTA Transportation LLC</div>
         <div class="co-info">
-          2100 Grant Ave, Apt 10<br>
-          Philadelphia, PA 19115<br>
-          272-372-0000<br>
-          ztatransportation@gmail.com
+          2100 Grant Ave Apt 10, Philadelphia, PA 19115<br>
+          Tel: 272-372-0000
         </div>
       </div>
     </div>
@@ -1711,6 +1728,15 @@ const FC = {
 function fc(code) {
   const c = (code||'').trim().toUpperCase();
   return FC[c] ? `${c} <span style="font-weight:400;color:var(--text3)">(${FC[c]})</span>` : (c || '—');
+}
+// City,State only (for PDF route column)
+function fcCity(code) {
+  const c = (code||'').trim().toUpperCase();
+  if (FC[c]) {
+    const parts = FC[c].split(',');
+    return parts.length === 2 ? parts[0].trim() + ', ' + parts[1].trim() : FC[c];
+  }
+  return c || '—';
 }
 
 // ══════════════════════════════════════════════════════════════════════
