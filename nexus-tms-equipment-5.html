@@ -872,6 +872,29 @@ async function saveTruck() {
   loading(true);
   try {
     await db.upsert('trucks', row);
+
+    // ── Sync driver.truck field (Issue #2) ───────────────────────────
+    // 1. If this truck previously had a different driver, clear that driver's truck field
+    if (editId) {
+      const prevTruck = trucks.find(t => t.id === editId);
+      if (prevTruck && prevTruck.driver && prevTruck.driver !== (dn || null)) {
+        const prevDriver = drivers.find(d =>
+          (d.first + ' ' + d.last) === prevTruck.driver ||
+          d.id === prevTruck.driver_id
+        );
+        if (prevDriver) {
+          await db.patch('drivers', 'id=eq.' + prevDriver.id, { truck: null });
+        }
+      }
+    }
+    // 2. Set the new driver's truck field
+    if (dn) {
+      const newDriver = drivers.find(d => (d.first + ' ' + d.last) === dn);
+      if (newDriver) {
+        await db.patch('drivers', 'id=eq.' + newDriver.id, { truck: unit });
+      }
+    }
+
     closeModal();
     await loadAll();
     showToast(editId ? 'Truck updated OK' : 'Truck added OK');

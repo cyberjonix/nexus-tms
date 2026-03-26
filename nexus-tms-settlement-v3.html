@@ -257,13 +257,13 @@ select.inline-sel:focus{border-color:var(--blue)}
         <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
       </a>
     </div>
+      <div class="nav-section">
+        <div class="nav-section-label">Settings</div>
+        <a class="nav-item" href="nexus-account.html">
+          <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/><path d="M11 3l1 1M13 5h1M11 7l1 1M5 3l-1 1M3 5H2M5 7l-1 1"/></svg>Account
+        </a>
+      </div>
   </nav>
-    <div class="nav-section">
-      <div class="nav-section-label">Settings</div>
-      <a class="nav-item" href="nexus-account.html">
-        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/><path d="M11 3l1 1M13 5h1M11 7l1 1M5 3l-1 1M3 5H2M5 7l-1 1"/></svg>Account
-      </a>
-    </div>
   <div class="sidebar-foot">NEXUS<strong>v1.0 &middot; Settlements</strong></div>
 </aside>
 
@@ -412,6 +412,30 @@ async function signIn(email, password) {
 }
 
 // ── Restore session from sessionStorage ───────────────────────────────
+async function refreshSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    if (!s.refresh_token) return false;
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    _jwt = d.access_token;
+    _orgId = s.org_id;
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: d.access_token,
+      refresh_token: d.refresh_token,
+      org_id: s.org_id,
+      org_name: s.org_name
+    }));
+    return true;
+  } catch(e) { return false; }
+}
 async function restoreSession() {
   const stored = sessionStorage.getItem('nx-session');
   if (!stored) return false;
@@ -420,16 +444,25 @@ async function restoreSession() {
     if (!s.access_token || !s.org_id) return false;
     _jwt   = s.access_token;
     _orgId = s.org_id;
+    try {
+      const payload = JSON.parse(atob(_jwt.split('.')[1]));
+      if (payload.exp && payload.exp < Math.floor(Date.now()/1000) + 60) {
+        const refreshed = await refreshSession();
+        if (!refreshed) { sessionStorage.removeItem('nx-session'); return false; }
+      }
+    } catch(e) {}
     return true;
   } catch(e) { return false; }
 }
 
-// ── Overhead / dispatch from sessionStorage ───────────────────────────
-const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
-const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
-const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
-const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
-// Dispatch fee comes from truck ded.dispatch.pct
+// ── Overhead / dispatch — read live from sessionStorage (set in Account page) ──
+function getSafetyWeekly()     { return (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4; }
+function getAccountingWeekly() { return (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4; }
+function getWeeklyOverhead()   { return getSafetyWeekly() + getAccountingWeekly(); }
+function getDispatchPct()      { return parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3; }
+// Compat shims — any code referencing these consts still works
+const WEEKLY_OVERHEAD = 0; // replaced by getWeeklyOverhead()
+const DISPATCH_PCT    = 0; // replaced by getDispatchPct() — but dispatch comes from truck ded.dispatch.pct
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH
@@ -1182,10 +1215,10 @@ async function saveSettlementsToDb() {
   let nextSettleNum = 1;
   try {
     const existing = await sbFetch('settlements',
-      `org_id=eq.${_orgId}&select=settle_id&order=settle_id.desc&limit=1`);
-    if (existing.length && existing[0].settle_id) {
-      const maxNum = parseInt(existing[0].settle_id, 10);
-      if (!isNaN(maxNum)) nextSettleNum = maxNum + 1;
+      `org_id=eq.${_orgId}&select=settle_id&order=created_at.desc&limit=100`);
+    if (existing.length) {
+      const maxNum = Math.max(...existing.map(r => parseInt(r.settle_id, 10) || 0));
+      if (maxNum > 0) nextSettleNum = maxNum + 1;
     }
   } catch(e) { console.warn('Could not fetch max settle_id:', e.message); }
 

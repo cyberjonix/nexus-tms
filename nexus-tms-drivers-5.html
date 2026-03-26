@@ -440,6 +440,7 @@ function authHeaders(extra) {
 }
 async function sbFetch(table, params = '') {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params}`, { headers: authHeaders() });
+  if (r.status === 401) { sessionStorage.removeItem('nx-session'); window.location.href = 'nexus-tms-settlement-v3.html'; throw new Error('Session expired'); }
   if (!r.ok) throw new Error(await r.text());
   return r.json();
 }
@@ -1019,7 +1020,10 @@ window.authSubmit = async function() {
     if (!orgs.length) throw new Error('No organization linked');
     _orgId = orgs[0].id;
     sessionStorage.setItem('nx-session', JSON.stringify({
-      access_token: _jwt, org_id: _orgId, org_name: orgs[0].name
+      access_token: _jwt,
+      refresh_token: session.refresh_token || '',
+      org_id: _orgId,
+      org_name: orgs[0].name
     }));
     sessionStorage.setItem('nexus-org-id',   _orgId);
     sessionStorage.setItem('nexus-org-name', orgs[0].name);
@@ -1034,21 +1038,7 @@ window.authSubmit = async function() {
   }
 };
 
-// -- INIT --
-(async function(){
-  const ok = await restoreSession();
-  const wall = document.getElementById('auth-wall');
-  const sb   = document.getElementById('app-sidebar');
-  if (ok) {
-    if (wall) wall.style.display = 'none';
-    if (sb)   sb.style.display   = '';
-    loadAll();
-  } else {
-    if (wall) wall.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => document.getElementById('auth-email-input')?.focus(), 100);
-  }
-})();
+// -- INIT (handled by initAuth above) --
 </script>
 </body>
 </html>

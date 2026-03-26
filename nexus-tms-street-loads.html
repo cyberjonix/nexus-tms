@@ -400,6 +400,30 @@ async function signIn(email, password) {
 }
 
 // ── Restore session from sessionStorage ───────────────────────────────
+async function refreshSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    if (!s.refresh_token) return false;
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    _jwt = d.access_token;
+    _orgId = s.org_id;
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: d.access_token,
+      refresh_token: d.refresh_token,
+      org_id: s.org_id,
+      org_name: s.org_name
+    }));
+    return true;
+  } catch(e) { return false; }
+}
 async function restoreSession() {
   const stored = sessionStorage.getItem('nx-session');
   if (!stored) return false;
@@ -408,20 +432,24 @@ async function restoreSession() {
     if (!s.access_token || !s.org_id) return false;
     _jwt   = s.access_token;
     _orgId = s.org_id;
-    return true;
-  } catch(e) { return false; }
-}
-    _jwt   = s.access_token;
-    _orgId = s.org_id;
+    try {
+      const payload = JSON.parse(atob(_jwt.split('.')[1]));
+      if (payload.exp && payload.exp < Math.floor(Date.now()/1000) + 60) {
+        const refreshed = await refreshSession();
+        if (!refreshed) { sessionStorage.removeItem('nx-session'); return false; }
+      }
+    } catch(e) {}
     return true;
   } catch(e) { return false; }
 }
 
-// ── Overhead / dispatch from sessionStorage ───────────────────────────
-const SAFETY_WEEKLY     = (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4;
-const ACCOUNTING_WEEKLY = (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4;
-const WEEKLY_OVERHEAD   = SAFETY_WEEKLY + ACCOUNTING_WEEKLY;
-const DISPATCH_PCT      = parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3;
+// ── Overhead / dispatch — read live from sessionStorage ──────────────
+function getSafetyWeekly()     { return (parseFloat(sessionStorage.getItem('nexus-safety'))     || 100) / 4; }
+function getAccountingWeekly() { return (parseFloat(sessionStorage.getItem('nexus-accounting')) || 50)  / 4; }
+function getWeeklyOverhead()   { return getSafetyWeekly() + getAccountingWeekly(); }
+function getDispatchPct()      { return parseFloat(sessionStorage.getItem('nexus-dispatch-pct')) || 3; }
+const WEEKLY_OVERHEAD = 0; // shim
+const DISPATCH_PCT    = 0; // shim
 
 // ── Session restore / auth guard ─────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
@@ -441,6 +469,7 @@ let trucks = [], drivers = [], allLoads = [];
 // ── Supabase helpers (use JWT via authHeaders) ────────────────────────
 async function sbFetch(table, params) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
+  if (r.status === 401) { sessionStorage.removeItem('nx-session'); window.location.href = 'nexus-tms-settlement-v3.html'; throw new Error('Session expired'); }
   if (!r.ok) throw new Error(`Supabase ${table}: ${r.status}`);
   return r.json();
 }
@@ -854,7 +883,7 @@ async function confirmPaid() {
       method: 'PATCH',
       headers: {
         'apikey': SUPABASE_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal',
       },
