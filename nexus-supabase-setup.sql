@@ -114,3 +114,14 @@ select tablename, rowsecurity
 from pg_tables
 where schemaname = 'public'
   and tablename in ('organizations','trucks','drivers','settlements','street_loads','driver_truck_history');
+
+-- ── STEP 13: Add settlement settings columns to organizations ─────────
+-- These are required for Account page to persist dispatch/safety/accounting settings
+alter table organizations
+  add column if not exists dispatch_pct      numeric default 3,
+  add column if not exists safety_monthly    numeric default 100,
+  add column if not exists accounting_monthly numeric default 50;
+
+-- ── NOTE: Run this after the existing setup SQL above ────────────────
+-- After running, Account page will read/write dispatch_pct, safety_monthly,
+-- and accounting_monthly directly as flat columns (not JSONB "settings").

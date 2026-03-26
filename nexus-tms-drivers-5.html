@@ -555,7 +555,7 @@ const PAY_HINTS   = {
 };
 
 // -- HELPERS --
-function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
+function uid() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)); }
 function ini(d) { return ((d.first || '?')[0] + (d.last || '?')[0]).toUpperCase(); }
 function fullName(d) { return d.first + ' ' + d.last; }
 function setTab(t, el) { activeTab = t; document.querySelectorAll('.tab').forEach(x => x.classList.remove('active')); el.classList.add('active'); renderTable(); }
@@ -774,7 +774,7 @@ async function saveDriver() {
     status:  document.getElementById('f-status').value,
     truck:   document.getElementById('f-truck').value || null
   };
-  if (editId) row.id = editId;
+  row.id = editId || uid();
 
   loading(true);
   try {
