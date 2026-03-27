@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet"></noscript>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS TMS — Data Imports</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F4F6FA;--surface:#fff;--surface2:#F0F3F8;--border:#E2E8F0;--border2:#C9D4E3;
+  --text:#0D1829;--text2:#4A5568;--text3:#8A9AB0;
+  --blue:#1A56DB;--blue-l:#EBF2FF;--blue-d:#1245B8;
+  --green:#059669;--green-l:#ECFDF5;--green-d:#047857;
+  --orange:#D97706;--orange-l:#FFFBEB;
+  --red:#DC2626;--red-l:#FEF2F2;
+  --purple:#7C3AED;--purple-l:#F5F3FF;
+  --navy:#0D1829;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+  --sh:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+  --sh-md:0 4px 16px rgba(0,0,0,.09),0 2px 4px rgba(0,0,0,.05);
+  --r:10px;--r-sm:6px;
+}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;display:flex}
+
+/* SIDEBAR */
+.sidebar{width:216px;min-width:216px;background:var(--navy);height:100vh;position:sticky;top:0;display:flex;flex-direction:column}
+.logo-area{padding:20px 16px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-mark{font-family:var(--mono);font-size:17px;font-weight:500;color:#fff;letter-spacing:-.3px}
+.logo-sub{font-size:11px;color:rgba(255,255,255,.3);margin-top:2px}
+.conn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#374151;margin-right:5px;vertical-align:middle}
+.conn-dot.ok{background:#34D399}.conn-dot.err{background:#F87171}.conn-dot.loading{background:#FCD34D;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav{flex:1;padding:10px 8px;overflow-y:auto}
+.nav-section{margin-bottom:18px}
+.nav-section-label{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.28);padding:0 8px 5px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;font-size:13px;font-weight:500;color:rgba(255,255,255,.5);cursor:pointer;transition:all .15s;margin-bottom:1px;border:none;background:none;width:100%;text-align:left;text-decoration:none}
+.nav-item:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.85)}
+.nav-item.active{background:rgba(26,86,219,.3);color:#fff}
+.nav-ic{width:15px;height:15px;flex-shrink:0;opacity:.7}
+.nav-item.active .nav-ic{opacity:1}
+.sidebar-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.35)}
+.sidebar-foot strong{color:rgba(255,255,255,.6);display:block;margin-top:2px;font-size:12px}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow-x:hidden}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--sh)}
+.topbar-title{font-size:15px;font-weight:700}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.content{padding:22px 24px;flex:1}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r-sm);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue-d)}
+.btn-outline{background:transparent;color:var(--text2);border:1px solid var(--border2)}.btn-outline:hover{background:var(--surface2)}
+.btn-danger{background:var(--red-l);color:var(--red);border:1px solid #FECACA}.btn-danger:hover{background:#FEE2E2}
+.btn-sm{padding:5px 11px;font-size:12px}
+
+/* TABS */
+.page-tabs{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:22px}
+.page-tab{flex:1;padding:12px 16px;font-size:13px;font-weight:600;color:var(--text3);text-align:center;cursor:pointer;transition:all .15s;border-right:1px solid var(--border)}
+.page-tab:last-child{border-right:none}
+.page-tab.active{background:var(--blue);color:#fff}
+.page-tab:hover:not(.active){background:var(--surface2);color:var(--text)}
+
+/* UPLOAD CARDS */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.upload-card{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--r);padding:24px 18px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.upload-card:hover,.upload-card.drag{border-color:var(--blue);background:var(--blue-l)}
+.upload-card.done{border-style:solid;border-color:var(--green);background:var(--green-l);cursor:default}
+.upload-card.done:hover{background:var(--green-l)}
+.upload-card-icon{font-size:28px;margin-bottom:8px}
+.upload-card-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.upload-card-sub{font-size:11px;color:var(--text3);margin-bottom:8px}
+.upload-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.upload-badge.waiting{background:var(--surface2);color:var(--text3)}
+.upload-badge.success{background:#D1FAE5;color:var(--green)}
+.upload-badge.error{background:var(--red-l);color:var(--red)}
+.upload-filename{font-family:var(--mono);font-size:10px;color:var(--green-d);margin-top:4px}
+
+/* STATS BAR */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;box-shadow:var(--sh)}
+.stat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:4px}
+.stat-val{font-size:22px;font-weight:700;font-family:var(--mono)}
+.stat-val.blue{color:var(--blue)}.stat-val.red{color:var(--red)}.stat-val.green{color:var(--green)}.stat-val.orange{color:var(--orange)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* VIEW TOGGLE */
+.view-toggle{display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:3px;width:fit-content;margin-bottom:16px}
+.view-btn{padding:5px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text3);transition:all .15s;border:none;background:transparent;font-family:var(--sans)}
+.view-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--sh)}
+
+/* TABLE */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--sh)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl thead th{padding:9px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl thead th.r,.tbl tbody td.r{text-align:right}
+.tbl tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+.tbl tbody tr:last-child{border-bottom:none}
+.tbl tbody tr:hover td{background:#F0F6FF}
+.tbl td{padding:10px 14px;vertical-align:middle}
+.mono{font-family:var(--mono);font-size:12px}
+.tag-pill{display:inline-block;background:var(--navy);color:#fff;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:11px}
+.card-pill{display:inline-block;background:var(--orange-l);color:var(--orange);border:1px solid #FDE68A;padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:11px;font-weight:600}
+.truck-pill{display:inline-block;background:var(--blue-l);color:var(--blue);padding:2px 8px;border-radius:20px;font-family:var(--mono);font-size:11px;font-weight:600}
+.amt-neg{color:var(--red);font-weight:600;font-family:var(--mono)}
+.amt-pos{color:var(--green);font-weight:600;font-family:var(--mono)}
+.empty{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-icon{font-size:32px;margin-bottom:10px}
+.empty-title{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:4px}
+
+/* IMPORT RESULT */
+.import-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;margin-bottom:16px;font-size:13px;display:none}
+.import-result.show{display:flex;align-items:center;gap:12px}
+.import-result.ok{border-color:var(--green);background:var(--green-l)}
+.import-result.err{border-color:var(--red);background:var(--red-l)}
+
+/* SECTION HEADER */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-size:14px;font-weight:700}
+.section-sub{font-size:12px;color:var(--text3);margin-top:2px}
+
+/* TOTAL TABLE */
+.total-tbl tbody tr.grand-total td{background:var(--navy);color:#fff;font-weight:700;font-family:var(--mono)}
+.total-tbl tbody tr.grand-total td:first-child{border-radius:0 0 0 var(--r-sm)}
+.total-tbl tbody tr.grand-total td:last-child{border-radius:0 0 var(--r-sm) 0}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--navy);color:#fff;padding:11px 22px;border-radius:var(--r);font-size:13px;font-weight:500;box-shadow:var(--sh-md);z-index:999;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.loading-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--blue);z-index:9999;transform:scaleX(0);transform-origin:left;transition:transform .3s}
+.loading-bar.active{animation:loadpulse 1.2s ease-in-out infinite}
+@keyframes loadpulse{0%{transform:scaleX(0)}50%{transform:scaleX(.7)}100%{transform:scaleX(1)}}
+</style>
+</head>
+<body>
+<div class="loading-bar" id="loading-bar"></div>
+
+<!-- AUTH WALL -->
+<div id="auth-wall" style="display:none;position:fixed;inset:0;background:#0D1829;z-index:9999;align-items:center;justify-content:center">
+  <div style="width:320px;text-align:center">
+    <div style="font-family:var(--mono);font-size:22px;color:#fff;margin-bottom:4px">NEXUS TMS</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.3);margin-bottom:32px">Sign in to your account</div>
+    <input id="auth-email" type="email" placeholder="Email address" autocomplete="email"
+      style="width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:15px;color:#fff;outline:none;text-align:center;margin-bottom:10px;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')document.getElementById('auth-pw').focus()">
+    <input id="auth-pw" type="password" placeholder="Password" autocomplete="current-password"
+      style="width:100%;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;font-size:15px;color:#fff;outline:none;text-align:center;margin-bottom:12px;box-sizing:border-box"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()" style="width:100%;padding:11px;background:#1A56DB;border:none;border-radius:8px;font-size:14px;font-weight:600;color:#fff;cursor:pointer">Sign In</button>
+    <div id="auth-err" style="font-size:12px;color:#F87171;margin-top:10px;min-height:16px"></div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="app-sidebar" style="display:none">
+  <div class="logo-area">
+    <div class="logo-mark">NEXUS</div>
+    <div class="logo-sub"><span class="conn-dot" id="conn-dot"></span><span id="conn-txt">Loading…</span></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">
+      <div class="nav-section-label">Operations</div>
+      <a class="nav-item" href="nexus-tms-settlement-v3.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z"/><path d="M5 6h6M5 9h6M5 12h3"/></svg>Settlements
+      </a>
+      <a class="nav-item" href="nexus-tms-history.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5l2 2"/></svg>History
+      </a>
+      <a class="nav-item" href="nexus-tms-street-loads.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11l4-7 3 5 2-3 3 5"/></svg>Street Loads
+      </a>
+      <a class="nav-item active" href="nexus-tms-imports.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4 7l4 4 4-4"/><path d="M2 13h12"/></svg>Data Imports
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Analytics</div>
+      <a class="nav-item" href="nexus-tms-pnl.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12l3-4 3 2 3-5 3 3"/><path d="M2 14h12"/></svg>P&amp;L
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Management</div>
+      <a class="nav-item" href="nexus-tms-equipment-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="9" width="5" height="6" rx="1"/><rect x="10" y="9" width="5" height="6" rx="1"/><path d="M3.5 9V7a1 1 0 011-1h7a1 1 0 011 1v2"/><path d="M8 6V2"/></svg>Equipment
+      </a>
+      <a class="nav-item" href="nexus-tms-drivers-5.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>Drivers
+      </a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Settings</div>
+      <a class="nav-item" href="nexus-account.html">
+        <svg class="nav-ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3 2.7-5 6-5s6 2 6 5"/><path d="M11 3l1 1M13 5h1M11 7l1 1M5 3l-1 1M3 5H2M5 7l-1 1"/></svg>Account
+      </a>
+    </div>
+  </nav>
+  <div class="sidebar-foot">NEXUS<strong>v1.0 · Data Imports</strong></div>
+</aside>
+
+<!-- MAIN -->
+<main class="main" id="app-main" style="display:none">
+  <div class="topbar">
+    <div class="topbar-title">Data Imports</div>
+    <div class="topbar-actions">
+      <button class="btn btn-danger btn-sm" id="btn-clear-all" onclick="confirmClearAll()" style="display:none">
+        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        Clear All Data
+      </button>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- PAGE TABS -->
+    <div class="page-tabs">
+      <div class="page-tab active" id="tab-ezpass" onclick="switchTab('ezpass')">🛣️ EZ Pass</div>
+      <div class="page-tab" id="tab-fuel" onclick="switchTab('fuel')">⛽ Fuel Card</div>
+    </div>
+
+    <!-- ═══ EZ PASS SECTION ═══════════════════════════════════════════ -->
+    <div id="section-ezpass">
+
+      <!-- Upload -->
+      <div class="upload-grid">
+        <div class="upload-card" id="card-ezpass"
+          onclick="document.getElementById('file-ezpass').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDrop(event,'ezpass')">
+          <div class="upload-card-icon">🛣️</div>
+          <div class="upload-card-title">EZ Pass CSV</div>
+          <div class="upload-card-sub">Drag & drop or click to browse</div>
+          <div id="status-ezpass"><span class="upload-badge waiting">⏳ No file loaded</span></div>
+        </div>
+        <input type="file" id="file-ezpass" accept=".csv" style="display:none" onchange="handleFile(event,'ezpass')">
+
+        <div class="upload-card" style="cursor:default;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:20px 22px">
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Expected columns</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2">
+            TAG ID<br>EXIT DATE<br>PLAZA<br>AGENCY<br>AMOUNT
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text3)">Duplicates auto-skipped by TAG ID + Exit Date + Plaza</div>
+        </div>
+      </div>
+
+      <!-- Import result -->
+      <div class="import-result" id="result-ezpass"></div>
+
+      <!-- Stats -->
+      <div class="stats-row" id="stats-ezpass" style="display:none">
+        <div class="stat-card"><div class="stat-lbl">Total Transactions</div><div class="stat-val blue" id="ez-stat-count">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Unique Tags</div><div class="stat-val orange" id="ez-stat-tags">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Total Tolls</div><div class="stat-val red" id="ez-stat-total">—</div><div class="stat-sub">all tags</div></div>
+        <div class="stat-card"><div class="stat-lbl">Matched to Trucks</div><div class="stat-val green" id="ez-stat-matched">—</div></div>
+      </div>
+
+      <!-- View toggle + table -->
+      <div id="ez-table-section" style="display:none">
+        <div class="section-header">
+          <div>
+            <div class="section-title">EZ Pass Transactions</div>
+            <div class="section-sub" id="ez-table-sub">All transactions stored in database</div>
+          </div>
+          <div class="view-toggle">
+            <button class="view-btn active" id="ez-view-detail" onclick="setEzView('detail')">Detail</button>
+            <button class="view-btn" id="ez-view-total" onclick="setEzView('total')">By Tag / Truck</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="ez-table">
+            <thead id="ez-thead"></thead>
+            <tbody id="ez-tbody"></tbody>
+          </table>
+          <div class="empty" id="ez-empty" style="display:none">
+            <div class="empty-icon">🛣️</div>
+            <div class="empty-title">No EZ Pass transactions yet</div>
+            <div>Upload a CSV file to import transactions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ FUEL CARD SECTION ═══════════════════════════════════════════ -->
+    <div id="section-fuel" style="display:none">
+
+      <!-- Upload -->
+      <div class="upload-grid">
+        <div class="upload-card" id="card-fuel"
+          onclick="document.getElementById('file-fuel').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDrop(event,'fuel')">
+          <div class="upload-card-icon">⛽</div>
+          <div class="upload-card-title">Fuel Card CSV</div>
+          <div class="upload-card-sub">Drag & drop or click to browse</div>
+          <div id="status-fuel"><span class="upload-badge waiting">⏳ No file loaded</span></div>
+        </div>
+        <input type="file" id="file-fuel" accept=".csv" style="display:none" onchange="handleFile(event,'fuel')">
+
+        <div class="upload-card" style="cursor:default;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:20px 22px">
+          <div style="font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Expected columns</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2">
+            CARD #<br>TRAN DATE<br>UNIT<br>LOCATION NAME<br>FEES / AMT / TOTAL (optional)
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text3)">Duplicates auto-skipped by Card # + Invoice + Date</div>
+        </div>
+      </div>
+
+      <!-- Import result -->
+      <div class="import-result" id="result-fuel"></div>
+
+      <!-- Stats -->
+      <div class="stats-row" id="stats-fuel" style="display:none">
+        <div class="stat-card"><div class="stat-lbl">Total Transactions</div><div class="stat-val blue" id="fu-stat-count">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Unique Cards</div><div class="stat-val orange" id="fu-stat-cards">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Total Fuel Amt</div><div class="stat-val red" id="fu-stat-total">—</div><div class="stat-sub">before fees</div></div>
+        <div class="stat-card"><div class="stat-lbl">Total with Fees</div><div class="stat-val" id="fu-stat-fees" style="color:var(--text)">—</div></div>
+      </div>
+
+      <!-- View toggle + table -->
+      <div id="fu-table-section" style="display:none">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Fuel Card Transactions</div>
+            <div class="section-sub" id="fu-table-sub">All transactions stored in database</div>
+          </div>
+          <div class="view-toggle">
+            <button class="view-btn active" id="fu-view-detail" onclick="setFuView('detail')">Detail</button>
+            <button class="view-btn" id="fu-view-total" onclick="setFuView('total')">By Card / Truck</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="fu-table">
+            <thead id="fu-thead"></thead>
+            <tbody id="fu-tbody"></tbody>
+          </table>
+          <div class="empty" id="fu-empty" style="display:none">
+            <div class="empty-icon">⛽</div>
+            <div class="empty-title">No fuel transactions yet</div>
+            <div>Upload a CSV file to import transactions</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="toast" id="toast-el"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════
+// CONFIG + AUTH
+// ══════════════════════════════════════════════════════════════════════
+const SUPABASE_URL = 'https://aiokbuzauuadoqrghyic.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpb2tidXphdXVhZG9xcmdoeWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMjM1NDcsImV4cCI6MjA4ODg5OTU0N30.KzHNFWN2kDbNSHB0Tj-zQGrYNNR_tDDJ_P8INW5kjeU';
+
+let _jwt = null, _orgId = null;
+let trucks = []; // loaded from Supabase — used for card→truck matching
+
+function authHeaders(extra) {
+  return Object.assign({
+    'apikey': SUPABASE_KEY,
+    'Authorization': 'Bearer ' + (_jwt || SUPABASE_KEY),
+    'Content-Type': 'application/json'
+  }, extra || {});
+}
+
+async function refreshSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    if (!s.refresh_token) return false;
+    const r = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    _jwt = d.access_token; _orgId = s.org_id;
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: d.access_token, refresh_token: d.refresh_token,
+      org_id: s.org_id, org_name: s.org_name
+    }));
+    return true;
+  } catch(e) { return false; }
+}
+
+async function restoreSession() {
+  const stored = sessionStorage.getItem('nx-session');
+  if (!stored) return false;
+  try {
+    const s = JSON.parse(stored);
+    if (!s.access_token || !s.org_id) return false;
+    _jwt = s.access_token; _orgId = s.org_id;
+    try {
+      const payload = JSON.parse(atob(_jwt.split('.')[1]));
+      if (payload.exp && payload.exp < Math.floor(Date.now()/1000) + 60) {
+        const refreshed = await refreshSession();
+        if (!refreshed) { sessionStorage.removeItem('nx-session'); return false; }
+      }
+    } catch(e) {}
+    return true;
+  } catch(e) { return false; }
+}
+
+async function sbFetch(table, params) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${params||''}`, { headers: authHeaders() });
+  if (r.status === 401) { sessionStorage.removeItem('nx-session'); window.location.href = 'nexus-tms-settlement-v3.html'; throw new Error('Session expired'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbUpsert(table, rows) {
+  const body = Array.isArray(rows) ? rows : [rows];
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: authHeaders({ 'Prefer': 'resolution=ignore-duplicates,return=representation' }),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function sbDelete(table, query) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: 'DELETE', headers: authHeaders()
+  });
+  if (!r.ok) throw new Error(await r.text());
+}
+
+// ── Auth startup ──────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  const ok = await restoreSession();
+  if (!ok) {
+    document.getElementById('auth-wall').style.display = 'flex';
+    setTimeout(() => document.getElementById('auth-email')?.focus(), 100);
+    return;
+  }
+  showApp();
+  initApp();
+});
+
+async function doLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pw    = document.getElementById('auth-pw').value;
+  const err   = document.getElementById('auth-err');
+  if (!email || !pw) { err.textContent = 'Enter email and password'; return; }
+  err.textContent = '';
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pw })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error_description || 'Login failed');
+    _jwt = d.access_token;
+    const payload = JSON.parse(atob(_jwt.split('.')[1]));
+    const orgs = await sbFetch('organizations', `owner_id=eq.${payload.sub}&select=id,name`);
+    if (!orgs.length) throw new Error('No organization linked');
+    _orgId = orgs[0].id;
+    sessionStorage.setItem('nx-session', JSON.stringify({
+      access_token: _jwt, refresh_token: d.refresh_token || '',
+      org_id: _orgId, org_name: orgs[0].name
+    }));
+    document.getElementById('auth-wall').style.display = 'none';
+    showApp();
+    initApp();
+  } catch(e) {
+    err.textContent = e.message;
+  }
+}
+
+function showApp() {
+  document.getElementById('auth-wall').style.display = 'none';
+  document.getElementById('app-sidebar').style.display = '';
+  document.getElementById('app-main').style.display = '';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// INIT — load trucks for matching
+// ══════════════════════════════════════════════════════════════════════
+async function initApp() {
+  setConn('loading', 'Loading…');
+  try {
+    trucks = await sbFetch('trucks', `org_id=eq.${_orgId}&status=eq.active&select=id,unit,ded`);
+    setConn('ok', `${trucks.length} trucks loaded`);
+    document.getElementById('btn-clear-all').style.display = '';
+    await loadEzPass();
+    await loadFuel();
+  } catch(e) {
+    setConn('err', 'DB error');
+    toast('Could not load fleet data: ' + e.message, true);
+  }
+}
+
+function setConn(state, txt) {
+  const dot = document.getElementById('conn-dot');
+  const lbl = document.getElementById('conn-txt');
+  dot.className = 'conn-dot ' + state;
+  lbl.textContent = txt;
+}
+
+// ── Truck matching helpers ────────────────────────────────────────────
+function truckForTag(tagId) {
+  // Normalize tag — strip non-digits for matching
+  const norm = String(tagId).replace(/\D/g,'');
+  return trucks.find(t => {
+    const ded = typeof t.ded === 'string' ? JSON.parse(t.ded||'{}') : (t.ded||{});
+    const tTag = String(ded.ezpass?.id||'').replace(/\D/g,'');
+    return tTag && tTag === norm;
+  }) || null;
+}
+
+function truckForCard(cardNum) {
+  const norm = String(cardNum).replace(/\s/g,'').toLowerCase();
+  return trucks.find(t => {
+    const ded = typeof t.ded === 'string' ? JSON.parse(t.ded||'{}') : (t.ded||{});
+    const tCard = String(ded.fuel?.id||'').replace(/\s/g,'').toLowerCase();
+    return tCard && tCard === norm;
+  }) || null;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════════════
+let activeTab = 'ezpass';
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('section-ezpass').style.display = tab === 'ezpass' ? '' : 'none';
+  document.getElementById('section-fuel').style.display   = tab === 'fuel'   ? '' : 'none';
+  document.getElementById('tab-ezpass').classList.toggle('active', tab === 'ezpass');
+  document.getElementById('tab-fuel').classList.toggle('active', tab === 'fuel');
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FILE HANDLING
+// ══════════════════════════════════════════════════════════════════════
+function handleDrop(e, type) {
+  e.preventDefault();
+  document.getElementById('card-'+type).classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type);
+}
+function handleFile(e, type) {
+  if (e.target.files[0]) processFile(e.target.files[0], type);
+}
+
+function processFile(file, type) {
+  loading(true);
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    encoding: 'UTF-8',
+    complete: async r => {
+      // Strip BOM from first key
+      if (r.data.length && r.meta?.fields) {
+        const first = r.meta.fields[0];
+        if (first.charCodeAt(0) === 0xFEFF) {
+          const clean = first.slice(1);
+          r.data.forEach(row => { row[clean] = row[first]; delete row[first]; });
+        }
+        // Strip quotes from all keys
+        r.data = r.data.map(row => {
+          const clean = {};
+          Object.entries(row).forEach(([k,v]) => {
+            clean[k.replace(/"/g,'')] = typeof v === 'string' ? v.replace(/"/g,'') : v;
+          });
+          return clean;
+        });
+      }
+      if (type === 'ezpass') await importEzPass(r.data, file.name);
+      else await importFuel(r.data, file.name);
+      loading(false);
+    },
+    error: e => { toast('Parse error: ' + e.message, true); loading(false); }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// EZ PASS IMPORT
+// ══════════════════════════════════════════════════════════════════════
+function parseAmount(s) {
+  if (!s) return 0;
+  // Handle -$4.75 or ($4.75) or 4.75
+  const clean = String(s).replace(/[$,\s]/g,'').replace(/^\((.+)\)$/,'$1');
+  const val = parseFloat(clean) || 0;
+  return Math.abs(val); // store as positive
+}
+
+function normalizeDateTime(raw) {
+  if (!raw) return null;
+  // Format: 2026/03/24 17:49:37  or  2026-03-24T17:49:37
+  const s = String(raw).replace(/\//g,'-');
+  // Try parse directly
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString();
+  return null;
+}
+
+async function importEzPass(rows, filename) {
+  // Detect columns
+  const cols = Object.keys(rows[0] || {});
+  const find = (...aliases) => cols.find(c => aliases.some(a => c.toLowerCase().trim().includes(a.toLowerCase())));
+
+  const colTag    = find('tag id','tag_id','tagid');
+  const colExit   = find('exit date','exit_date','exitdate');
+  const colPlaza  = find('plaza');
+  const colAgency = find('agency');
+  const colAmt    = find('amount','amt');
+  const colType   = find('collection type','type');
+
+  if (!colTag || !colAmt) {
+    showResult('ezpass', false, 'Could not find TAG ID or AMOUNT columns. Check CSV format.');
+    return;
+  }
+
+  // Filter: only TOLL rows (skip credit card replenishments etc)
+  const tollRows = rows.filter(r => {
+    const type = String(r[colType]||'').toUpperCase();
+    const tag  = String(r[colTag]||'').trim();
+    return tag && (type === 'TOLL' || !colType || type === '');
+  });
+
+  const records = tollRows.map(r => ({
+    org_id:    _orgId,
+    tag_id:    String(r[colTag]||'').replace(/"/g,'').trim(),
+    exit_date: normalizeDateTime(r[colExit]),
+    plaza:     String(r[colPlaza]||'').trim() || null,
+    agency:    String(r[colAgency]||'').trim() || null,
+    amount:    parseAmount(r[colAmt]),
+  })).filter(r => r.tag_id && r.exit_date && r.amount > 0);
+
+  if (!records.length) {
+    showResult('ezpass', false, `No valid TOLL rows found in ${filename}`);
+    return;
+  }
+
+  try {
+    // upsert with ignore-duplicates — only NEW records get inserted
+    const inserted = await sbUpsert('ezpass_transactions', records);
+    const newCount = inserted.length;
+    const dupCount = records.length - newCount;
+    showResult('ezpass', true,
+      `✓ Imported ${newCount} new transactions from ${filename}${dupCount ? ' · ' + dupCount + ' duplicates skipped' : ''}`
+    );
+    document.getElementById('status-ezpass').innerHTML =
+      `<span class="upload-badge success">✓ ${records.length} rows parsed</span>
+       <div class="upload-filename">${filename}</div>`;
+    document.getElementById('card-ezpass').className = 'upload-card done';
+    await loadEzPass();
+  } catch(e) {
+    showResult('ezpass', false, 'Import failed: ' + e.message);
+  }
+}
+
+// ── Load & render EZ Pass ─────────────────────────────────────────────
+let ezRows = [], ezView = 'detail';
+
+async function loadEzPass() {
+  try {
+    ezRows = await sbFetch('ezpass_transactions',
+      `org_id=eq.${_orgId}&order=exit_date.desc&select=*`);
+    renderEzPass();
+  } catch(e) {
+    console.warn('EZ Pass load error:', e.message);
+  }
+}
+
+function setEzView(v) {
+  ezView = v;
+  document.getElementById('ez-view-detail').classList.toggle('active', v === 'detail');
+  document.getElementById('ez-view-total').classList.toggle('active', v === 'total');
+  renderEzPass();
+}
+
+function renderEzPass() {
+  const sec   = document.getElementById('ez-table-section');
+  const stats = document.getElementById('stats-ezpass');
+  const empty = document.getElementById('ez-empty');
+  const table = document.getElementById('ez-table');
+
+  if (!ezRows.length) {
+    sec.style.display = 'none';
+    stats.style.display = 'none';
+    return;
+  }
+
+  sec.style.display = '';
+  stats.style.display = '';
+  empty.style.display = 'none';
+  table.style.display = '';
+
+  // Stats
+  const tags    = [...new Set(ezRows.map(r => r.tag_id))];
+  const total   = ezRows.reduce((a,r) => a + Number(r.amount), 0);
+  const matched = tags.filter(t => truckForTag(t)).length;
+  document.getElementById('ez-stat-count').textContent = ezRows.length.toLocaleString();
+  document.getElementById('ez-stat-tags').textContent  = tags.length;
+  document.getElementById('ez-stat-total').textContent = '$' + fmt(total);
+  document.getElementById('ez-stat-matched').textContent = `${matched}/${tags.length}`;
+
+  if (ezView === 'detail') {
+    document.getElementById('ez-table-sub').textContent = `${ezRows.length} transactions`;
+    document.getElementById('ez-thead').innerHTML = `<tr>
+      <th>TAG ID</th><th>Exit Date</th><th>Plaza</th><th>Agency</th><th>Truck</th><th class="r">Amount</th>
+    </tr>`;
+    document.getElementById('ez-tbody').innerHTML = ezRows.map(r => {
+      const truck = truckForTag(r.tag_id);
+      const dt = r.exit_date ? new Date(r.exit_date).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+      return `<tr>
+        <td><span class="tag-pill">${r.tag_id}</span></td>
+        <td class="mono" style="font-size:12px;color:var(--text2)">${dt}</td>
+        <td style="font-size:12px;color:var(--text2);max-width:200px">${r.plaza||'—'}</td>
+        <td style="font-size:12px;color:var(--text3)">${r.agency||'—'}</td>
+        <td>${truck ? `<span class="truck-pill">Unit ${truck.unit}</span>` : '<span style="color:var(--text3);font-size:12px">—</span>'}</td>
+        <td class="r"><span class="amt-neg">$${fmt(r.amount)}</span></td>
+      </tr>`;
+    }).join('');
+  } else {
+    // Group by tag → truck
+    const byTag = {};
+    ezRows.forEach(r => {
+      if (!byTag[r.tag_id]) byTag[r.tag_id] = { tag_id: r.tag_id, count: 0, total: 0 };
+      byTag[r.tag_id].count++;
+      byTag[r.tag_id].total += Number(r.amount);
+    });
+    const grouped = Object.values(byTag).sort((a,b) => b.total - a.total);
+    const grandTotal = grouped.reduce((a,g) => a + g.total, 0);
+    document.getElementById('ez-table-sub').textContent = `${grouped.length} tags`;
+    document.getElementById('ez-thead').innerHTML = `<tr>
+      <th>TAG ID</th><th>Truck</th><th class="r">Transactions</th><th class="r">Total Tolls</th>
+    </tr>`;
+    document.getElementById('ez-tbody').innerHTML = grouped.map(g => {
+      const truck = truckForTag(g.tag_id);
+      return `<tr>
+        <td><span class="tag-pill">${g.tag_id}</span></td>
+        <td>${truck ? `<span class="truck-pill">Unit ${truck.unit}</span>` : '<span style="color:var(--orange);font-size:12px;font-weight:600">⚠ Not linked</span>'}</td>
+        <td class="r mono">${g.count}</td>
+        <td class="r"><span class="amt-neg">$${fmt(g.total)}</span></td>
+      </tr>`;
+    }).join('') + `<tr style="background:var(--navy)">
+      <td colspan="2" style="color:#fff;font-weight:700;padding:10px 14px">TOTAL</td>
+      <td class="r mono" style="color:#fff;padding:10px 14px">${ezRows.length}</td>
+      <td class="r" style="color:#34D399;font-weight:700;font-family:var(--mono);padding:10px 14px">$${fmt(grandTotal)}</td>
+    </tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FUEL CARD IMPORT
+// ══════════════════════════════════════════════════════════════════════
+async function importFuel(rows, filename) {
+  const cols = Object.keys(rows[0] || {});
+  const find = (...aliases) => cols.find(c => aliases.some(a => c.toLowerCase().trim().includes(a.toLowerCase())));
+
+  const colCard     = find('card #','card#','card_num','card num','cardnum');
+  const colDate     = find('tran date','tran_date','date','trandate');
+  const colInvoice  = find('invoice');
+  const colUnit     = find('unit');
+  const colLocation = find('location name','location','loc');
+  const colFees     = find('fees');
+  const colAmt      = find('amt','amount');
+  const colTotal    = find('total');
+
+  if (!colCard || !colDate) {
+    showResult('fuel', false, 'Could not find CARD # or TRAN DATE columns. Check CSV format.');
+    return;
+  }
+
+  const records = rows.map(r => {
+    const card = String(r[colCard]||'').trim();
+    const date = normalizeDate(r[colDate]);
+    if (!card || !date) return null;
+    return {
+      org_id:   _orgId,
+      card_num: card,
+      tran_date: date,
+      invoice:  colInvoice ? String(r[colInvoice]||'').trim() || null : null,
+      unit:     colUnit    ? String(r[colUnit]||'').trim() || null : null,
+      location: colLocation? String(r[colLocation]||'').trim() || null : null,
+      fees:     colFees    ? parseAmount(r[colFees])    : 0,
+      amt:      colAmt     ? parseAmount(r[colAmt])     : 0,
+      total:    colTotal   ? parseAmount(r[colTotal])   : 0,
+    };
+  }).filter(Boolean);
+
+  if (!records.length) {
+    showResult('fuel', false, `No valid rows found in ${filename}`);
+    return;
+  }
+
+  try {
+    const inserted = await sbUpsert('fuel_transactions', records);
+    const newCount = inserted.length;
+    const dupCount = records.length - newCount;
+    showResult('fuel', true,
+      `✓ Imported ${newCount} new transactions from ${filename}${dupCount ? ' · ' + dupCount + ' duplicates skipped' : ''}`
+    );
+    document.getElementById('status-fuel').innerHTML =
+      `<span class="upload-badge success">✓ ${records.length} rows parsed</span>
+       <div class="upload-filename">${filename}</div>`;
+    document.getElementById('card-fuel').className = 'upload-card done';
+    await loadFuel();
+  } catch(e) {
+    showResult('fuel', false, 'Import failed: ' + e.message);
+  }
+}
+
+// ── Load & render Fuel ────────────────────────────────────────────────
+let fuRows = [], fuView = 'detail';
+
+async function loadFuel() {
+  try {
+    fuRows = await sbFetch('fuel_transactions',
+      `org_id=eq.${_orgId}&order=tran_date.desc&select=*`);
+    renderFuel();
+  } catch(e) {
+    console.warn('Fuel load error:', e.message);
+  }
+}
+
+function setFuView(v) {
+  fuView = v;
+  document.getElementById('fu-view-detail').classList.toggle('active', v === 'detail');
+  document.getElementById('fu-view-total').classList.toggle('active', v === 'total');
+  renderFuel();
+}
+
+function renderFuel() {
+  const sec   = document.getElementById('fu-table-section');
+  const stats = document.getElementById('stats-fuel');
+  const empty = document.getElementById('fu-empty');
+  const table = document.getElementById('fu-table');
+
+  if (!fuRows.length) {
+    sec.style.display = 'none';
+    stats.style.display = 'none';
+    return;
+  }
+
+  sec.style.display = '';
+  stats.style.display = '';
+  empty.style.display = 'none';
+  table.style.display = '';
+
+  const cards    = [...new Set(fuRows.map(r => r.card_num))];
+  const totalAmt = fuRows.reduce((a,r) => a + Number(r.amt||0), 0);
+  const totalAll = fuRows.reduce((a,r) => a + Number(r.total||r.amt||0), 0);
+  document.getElementById('fu-stat-count').textContent = fuRows.length.toLocaleString();
+  document.getElementById('fu-stat-cards').textContent = cards.length;
+  document.getElementById('fu-stat-total').textContent = '$' + fmt(totalAmt);
+  document.getElementById('fu-stat-fees').textContent  = '$' + fmt(totalAll);
+
+  if (fuView === 'detail') {
+    document.getElementById('fu-table-sub').textContent = `${fuRows.length} transactions`;
+    document.getElementById('fu-thead').innerHTML = `<tr>
+      <th>Card #</th><th>Date</th><th>Unit</th><th>Location</th><th class="r">Fees</th><th class="r">Amt</th><th class="r">Total</th>
+    </tr>`;
+    document.getElementById('fu-tbody').innerHTML = fuRows.map(r => {
+      const truck = truckForCard(r.card_num);
+      const loc = (r.location||'—').length > 28 ? r.location.slice(0,28)+'…' : (r.location||'—');
+      return `<tr>
+        <td><span class="card-pill">${r.card_num}</span></td>
+        <td class="mono" style="font-size:12px;color:var(--text2)">${r.tran_date||'—'}</td>
+        <td>${truck ? `<span class="truck-pill">Unit ${truck.unit}</span>` : (r.unit ? `<span style="font-family:var(--mono);font-size:12px">${r.unit}</span>` : '<span style="color:var(--text3);font-size:12px">—</span>')}</td>
+        <td style="font-size:12px;color:var(--text2)">${loc}</td>
+        <td class="r mono" style="color:var(--text3);font-size:12px">${r.fees > 0 ? '$'+fmt(r.fees) : '—'}</td>
+        <td class="r"><span class="amt-neg">$${fmt(r.amt)}</span></td>
+        <td class="r mono" style="font-weight:600">$${fmt(r.total||r.amt)}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    // Group by card → truck
+    const byCard = {};
+    fuRows.forEach(r => {
+      if (!byCard[r.card_num]) byCard[r.card_num] = { card_num: r.card_num, count: 0, totalAmt: 0, totalAll: 0, totalFees: 0 };
+      byCard[r.card_num].count++;
+      byCard[r.card_num].totalAmt  += Number(r.amt||0);
+      byCard[r.card_num].totalFees += Number(r.fees||0);
+      byCard[r.card_num].totalAll  += Number(r.total||r.amt||0);
+    });
+    const grouped = Object.values(byCard).sort((a,b) => b.totalAll - a.totalAll);
+    const grandAmt = grouped.reduce((a,g) => a + g.totalAmt, 0);
+    const grandAll = grouped.reduce((a,g) => a + g.totalAll, 0);
+    document.getElementById('fu-table-sub').textContent = `${grouped.length} cards`;
+    document.getElementById('fu-thead').innerHTML = `<tr>
+      <th>Card #</th><th>Truck</th><th class="r">Transactions</th><th class="r">Fuel Amt</th><th class="r">Fees</th><th class="r">Total</th>
+    </tr>`;
+    document.getElementById('fu-tbody').innerHTML = grouped.map(g => {
+      const truck = truckForCard(g.card_num);
+      return `<tr>
+        <td><span class="card-pill">${g.card_num}</span></td>
+        <td>${truck ? `<span class="truck-pill">Unit ${truck.unit}</span>` : '<span style="color:var(--orange);font-size:12px;font-weight:600">⚠ Not linked</span>'}</td>
+        <td class="r mono">${g.count}</td>
+        <td class="r"><span class="amt-neg">$${fmt(g.totalAmt)}</span></td>
+        <td class="r mono" style="color:var(--text3);font-size:12px">$${fmt(g.totalFees)}</td>
+        <td class="r mono" style="font-weight:700">$${fmt(g.totalAll)}</td>
+      </tr>`;
+    }).join('') + `<tr style="background:var(--navy)">
+      <td colspan="2" style="color:#fff;font-weight:700;padding:10px 14px">TOTAL</td>
+      <td class="r mono" style="color:#fff;padding:10px 14px">${fuRows.length}</td>
+      <td class="r" style="color:#F87171;font-weight:700;font-family:var(--mono);padding:10px 14px">$${fmt(grandAmt)}</td>
+      <td class="r mono" style="color:rgba(255,255,255,.5);padding:10px 14px">—</td>
+      <td class="r" style="color:#34D399;font-weight:700;font-family:var(--mono);padding:10px 14px">$${fmt(grandAll)}</td>
+    </tr>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CLEAR ALL
+// ══════════════════════════════════════════════════════════════════════
+async function confirmClearAll() {
+  const which = activeTab === 'ezpass' ? 'EZ Pass' : 'Fuel Card';
+  if (!confirm(`Delete ALL ${which} transactions for this organization? This cannot be undone.`)) return;
+  loading(true);
+  try {
+    if (activeTab === 'ezpass') {
+      await sbDelete('ezpass_transactions', `org_id=eq.${_orgId}`);
+      ezRows = [];
+      renderEzPass();
+      document.getElementById('card-ezpass').className = 'upload-card';
+      document.getElementById('status-ezpass').innerHTML = '<span class="upload-badge waiting">⏳ No file loaded</span>';
+      document.getElementById('result-ezpass').className = 'import-result';
+      toast('EZ Pass data cleared');
+    } else {
+      await sbDelete('fuel_transactions', `org_id=eq.${_orgId}`);
+      fuRows = [];
+      renderFuel();
+      document.getElementById('card-fuel').className = 'upload-card';
+      document.getElementById('status-fuel').innerHTML = '<span class="upload-badge waiting">⏳ No file loaded</span>';
+      document.getElementById('result-fuel').className = 'import-result';
+      toast('Fuel data cleared');
+    }
+  } catch(e) {
+    toast('Clear failed: ' + e.message, true);
+  } finally {
+    loading(false);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════
+function normalizeDate(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // MM/DD/YYYY
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  return null;
+}
+
+function fmt(n) {
+  return Number(n||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function showResult(type, ok, msg) {
+  const el = document.getElementById('result-' + type);
+  el.className = 'import-result show ' + (ok ? 'ok' : 'err');
+  el.innerHTML = `<span style="font-size:16px">${ok ? '✓' : '✗'}</span><span>${msg}</span>`;
+}
+
+let toastT;
+function toast(msg, err) {
+  const el = document.getElementById('toast-el');
+  el.textContent = msg;
+  el.style.background = err ? 'var(--red)' : '#0D1829';
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function loading(on) {
+  document.getElementById('loading-bar').classList.toggle('active', on);
+}
+</script>
+</body>
+</html>
