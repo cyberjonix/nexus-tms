@@ -196,6 +196,19 @@ select.inline-sel:focus{border-color:var(--blue)}
 .tag-purple{background:var(--purple-l);color:var(--purple)}
 .tag-blue{background:var(--blue-l);color:var(--blue)}
 
+.sc-status-bar{display:flex;align-items:center;gap:10px;padding:8px 20px;border-top:1px solid var(--border);background:var(--surface2);justify-content:space-between}
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.status-draft{background:#FEF3C7;color:#92400E}
+.status-approved{background:#D1FAE5;color:#065F46}
+.status-excluded{background:#F3F4F6;color:#6B7280;text-decoration:line-through;opacity:.6}
+.settle-card.excluded{opacity:.55;border-style:dashed}
+.settle-card.approved .settle-card-head{background:var(--green-l)}
+.approve-bar{background:var(--navy);border-radius:var(--r);padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:var(--sh-md)}
+.approve-bar-stats{display:flex;gap:20px}
+.approve-bar-stat{text-align:center}
+.approve-bar-label{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px}
+.approve-bar-val{font-family:var(--mono);font-size:18px;font-weight:500;color:#fff}
+.approve-bar-val.g{color:#34D399}.approve-bar-val.y{color:#FCD34D}.approve-bar-val.dim{color:rgba(255,255,255,.3)}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--navy);color:#fff;padding:11px 22px;border-radius:var(--r);font-size:13px;font-weight:500;box-shadow:var(--sh-lg);z-index:999;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -388,6 +401,34 @@ select.inline-sel:focus{border-color:var(--blue)}
     <!-- STEP 3 ─────────────────────────────────────────────────────────────── -->
     <div id="section-step3" style="display:none">
       <div id="summary-bar-wrap"></div>
+
+      <!-- APPROVE BAR -->
+      <div class="approve-bar" id="approve-bar" style="display:none">
+        <div class="approve-bar-stats">
+          <div class="approve-bar-stat">
+            <div class="approve-bar-label">Draft</div>
+            <div class="approve-bar-val y" id="abar-draft">—</div>
+          </div>
+          <div class="approve-bar-stat">
+            <div class="approve-bar-label">Approved</div>
+            <div class="approve-bar-val g" id="abar-approved">—</div>
+          </div>
+          <div class="approve-bar-stat">
+            <div class="approve-bar-label">Excluded</div>
+            <div class="approve-bar-val dim" id="abar-excluded">—</div>
+          </div>
+          <div class="approve-bar-stat">
+            <div class="approve-bar-label">Will Send</div>
+            <div class="approve-bar-val" id="abar-tosend">—</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" style="background:var(--green);color:#fff;font-family:var(--sans)" onclick="approveAll()" id="btn-approve-all">
+            Approve All
+          </button>
+        </div>
+      </div>
+
       <div class="settle-cards" id="settle-cards"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-outline" onclick="resetAll()">← New Settlement</button>
@@ -561,6 +602,55 @@ let S = {
   assigns: [],   // [{truck, unit, driverObj, truckObj, loads, gross}]
   step: 1,
 };
+
+// ── Approval state ────────────────────────────────────────────────────
+// 'draft' | 'approved' | 'excluded'
+const approvalState = {}; // i -> status, default 'draft'
+function getApproval(i) { return approvalState[i] || 'draft'; }
+function setApproval(i, status) {
+  approvalState[i] = status;
+  updateApproveBar();
+  // Update card appearance
+  const card = document.getElementById('sc-'+i);
+  if (card) {
+    card.className = 'settle-card fu ' + (status === 'excluded' ? 'excluded' : status === 'approved' ? 'approved' : '');
+  }
+  // Update pill
+  const pill = document.getElementById('sc-status-pill-'+i);
+  if (pill) {
+    const labels = { draft: '● Draft', approved: '✓ Approved', excluded: '✕ Excluded' };
+    const cls    = { draft: 'status-draft', approved: 'status-approved', excluded: 'status-excluded' };
+    pill.className = 'status-pill ' + cls[status];
+    pill.textContent = labels[status];
+  }
+  // Update exclude/restore button
+  const excBtn = document.getElementById('sc-exc-btn-'+i);
+  if (excBtn) {
+    excBtn.textContent = status === 'excluded' ? 'Restore' : 'Exclude';
+    excBtn.style.color = status === 'excluded' ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+function updateApproveBar() {
+  const total    = S.assigns.length;
+  const excluded = S.assigns.filter((_, i) => getApproval(i) === 'excluded').length;
+  const approved = S.assigns.filter((_, i) => getApproval(i) === 'approved').length;
+  const draft    = total - excluded - approved;
+  const toSend   = total - excluded;
+
+  const bar = document.getElementById('approve-bar');
+  if (!bar) return;
+  document.getElementById('abar-draft').textContent    = draft;
+  document.getElementById('abar-approved').textContent = approved;
+  document.getElementById('abar-excluded').textContent = excluded;
+  document.getElementById('abar-tosend').textContent   = toSend;
+
+  // Update Approve All button label
+  const btn = document.getElementById('btn-approve-all');
+  if (btn) btn.textContent = approved === toSend && toSend > 0
+    ? '✓ All Approved — Ready to Send'
+    : `Approve All (${toSend})`;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // SUPABASE FETCH
@@ -1471,6 +1561,11 @@ function renderStep3() {
 
   const totalGross = S.assigns.reduce((a,x)=>a+x.gross, 0);
 
+  // Reset approval state for new batch
+  S.assigns.forEach((_, i) => { delete approvalState[i]; });
+  const bar = document.getElementById('approve-bar');
+  if (bar) bar.style.display = '';
+
   document.getElementById('summary-bar-wrap').innerHTML = `
     <div class="summary-bar">
       <div class="sum-stat"><div class="sum-label">Period</div><div class="sum-val" style="font-size:13px">${period}</div></div>
@@ -1481,6 +1576,7 @@ function renderStep3() {
 
   const cardsHtml = S.assigns.map((a, i) => buildSettleCard(a, i, period)).join('');
   document.getElementById('settle-cards').innerHTML = cardsHtml;
+  updateApproveBar();
 }
 
 function buildSettleCard(a, i, period) {
@@ -1587,20 +1683,61 @@ function buildSettleCard(a, i, period) {
         </div>
       </div>
     </div>
-    <div class="settle-card-foot">
-      <button class="btn btn-outline btn-sm" onclick="printSettlement(${i})">
-        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-        Print
-      </button>
+    <div class="sc-status-bar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="status-pill status-draft" id="sc-status-pill-${i}">● Draft</span>
+        ${a.driverObj && a.driverObj.email
+          ? `<span style="font-size:11px;color:var(--text3)">${a.driverObj.email}</span>`
+          : `<span style="font-size:11px;color:var(--orange)">⚠ No email</span>`
+        }
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="printSettlement(${i})">
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+          Print
+        </button>
+        <button class="btn btn-sm" id="sc-exc-btn-${i}"
+          onclick="toggleExclude(${i})"
+          style="background:transparent;color:var(--red);border:1px solid #FECACA;font-family:var(--sans)">
+          Exclude
+        </button>
+        <button class="btn btn-sm"
+          onclick="setApproval(${i}, getApproval(${i})==='approved' ? 'draft' : 'approved')"
+          style="background:var(--green-l);color:var(--green-d);border:1px solid #A7F3D0;font-family:var(--sans)">
+          ✓ Approve
+        </button>
+      </div>
     </div>
   </div>`;
 }
 
 function toggleCard(i) {
+  if (getApproval(i) === 'excluded') return; // don't open excluded cards
   const body = document.getElementById('scb-'+i);
   const chev = document.getElementById('sc-chevron-'+i);
   const isOpen = body.classList.toggle('open');
   if (chev) chev.style.transform = isOpen ? 'rotate(180deg)' : '';
+}
+
+function toggleExclude(i) {
+  const cur = getApproval(i);
+  if (cur === 'excluded') {
+    setApproval(i, 'draft');
+  } else {
+    setApproval(i, 'excluded');
+    // Close body if open
+    const body = document.getElementById('scb-'+i);
+    const chev = document.getElementById('sc-chevron-'+i);
+    if (body) body.classList.remove('open');
+    if (chev) chev.style.transform = '';
+  }
+}
+
+function approveAll() {
+  S.assigns.forEach((_, i) => {
+    if (getApproval(i) !== 'excluded') setApproval(i, 'approved');
+  });
+  toast(`✓ ${S.assigns.filter((_,i) => getApproval(i) === 'approved').length} statements approved — ready to send`);
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1995,6 +2132,9 @@ function goToStep(n) {
 }
 
 function resetAll() {
+  Object.keys(approvalState).forEach(k => delete approvalState[k]);
+  const bar = document.getElementById('approve-bar');
+  if (bar) bar.style.display = 'none';
   S = { trucks: S.trucks, drivers: S.drivers, trips:null, invoice:null, ezpass:null, fuel:null, assigns:[], step:1 };
   ['trips','invoice','ezpass','fuel'].forEach(type => {
     const card = document.getElementById('card-'+type);
