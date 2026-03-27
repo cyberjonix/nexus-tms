@@ -133,6 +133,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .total-tbl tbody tr.grand-total td:first-child{border-radius:0 0 0 var(--r-sm)}
 .total-tbl tbody tr.grand-total td:last-child{border-radius:0 0 var(--r-sm) 0}
 
+.finput:focus{border-color:var(--blue)}
+.btn-sm{padding:5px 11px;font-size:12px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--navy);color:#fff;padding:11px 22px;border-radius:var(--r);font-size:13px;font-weight:500;box-shadow:var(--sh-md);z-index:999;opacity:0;transition:all .25s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .loading-bar{position:fixed;top:0;left:0;right:0;height:3px;background:var(--blue);z-index:9999;transform:scaleX(0);transform-origin:left;transition:transform .3s}
@@ -223,6 +225,19 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
     <div class="page-tabs">
       <div class="page-tab active" id="tab-ezpass" onclick="switchTab('ezpass')">🛣️ EZ Pass</div>
       <div class="page-tab" id="tab-fuel" onclick="switchTab('fuel')">⛽ Fuel Card</div>
+    </div>
+
+    <!-- DATE RANGE FILTER -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;box-shadow:var(--sh)">
+      <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Period</span>
+      <input type="date" id="filter-from" class="finput" style="height:32px;padding:0 10px;border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--text);background:var(--surface);outline:none">
+      <span style="font-size:12px;color:var(--text3)">→</span>
+      <input type="date" id="filter-to" class="finput" style="height:32px;padding:0 10px;border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:13px;color:var(--text);background:var(--surface);outline:none">
+      <button class="btn btn-outline btn-sm" onclick="setPreset('last')">Last Week</button>
+      <button class="btn btn-outline btn-sm" onclick="setPreset('this')">This Week</button>
+      <button class="btn btn-outline btn-sm" onclick="setPreset('month')">This Month</button>
+      <button class="btn btn-outline btn-sm" onclick="setPreset('all')">All Time</button>
+      <button class="btn btn-primary btn-sm" onclick="applyFilter()" style="margin-left:auto">Apply Filter</button>
     </div>
 
     <!-- ═══ EZ PASS SECTION ═══════════════════════════════════════════ -->
@@ -512,6 +527,39 @@ function showApp() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+// DATE PRESETS + FILTER
+// ══════════════════════════════════════════════════════════════════════
+function setPreset(type) {
+  const today = new Date();
+  const dow = today.getDay();
+  let from, to;
+  if (type === 'last') {
+    const lastSat = new Date(today); lastSat.setDate(today.getDate() - dow - 1);
+    const lastSun = new Date(lastSat); lastSun.setDate(lastSat.getDate() - 6);
+    from = fmtD(lastSun); to = fmtD(lastSat);
+  } else if (type === 'this') {
+    const sun = new Date(today); sun.setDate(today.getDate() - dow);
+    const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
+    from = fmtD(sun); to = fmtD(sat);
+  } else if (type === 'month') {
+    from = fmtD(new Date(today.getFullYear(), today.getMonth(), 1));
+    to   = fmtD(today);
+  } else {
+    from = ''; to = '';
+  }
+  document.getElementById('filter-from').value = from;
+  document.getElementById('filter-to').value   = to;
+  applyFilter();
+}
+
+function fmtD(d) { return d.toISOString().split('T')[0]; }
+
+async function applyFilter() {
+  await loadEzPass();
+  await loadFuel();
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // INIT — load trucks for matching
 // ══════════════════════════════════════════════════════════════════════
 async function initApp() {
@@ -520,8 +568,7 @@ async function initApp() {
     trucks = await sbFetch('trucks', `org_id=eq.${_orgId}&status=eq.active&select=id,unit,ded`);
     setConn('ok', `${trucks.length} trucks loaded`);
     document.getElementById('btn-clear-all').style.display = '';
-    await loadEzPass();
-    await loadFuel();
+    setPreset('last'); // default to last week
   } catch(e) {
     setConn('err', 'DB error');
     toast('Could not load fleet data: ' + e.message, true);
@@ -692,8 +739,12 @@ let ezRows = [], ezView = 'detail';
 
 async function loadEzPass() {
   try {
-    ezRows = await sbFetch('ezpass_transactions',
-      `org_id=eq.${_orgId}&order=exit_date.desc&select=*`);
+    const from = document.getElementById('filter-from')?.value;
+    const to   = document.getElementById('filter-to')?.value;
+    let q = `org_id=eq.${_orgId}&order=exit_date.desc&select=*`;
+    if (from) q += `&exit_date=gte.${from}T00:00:00`;
+    if (to)   q += `&exit_date=lte.${to}T23:59:59`;
+    ezRows = await sbFetch('ezpass_transactions', q);
     renderEzPass();
   } catch(e) {
     console.warn('EZ Pass load error:', e.message);
@@ -845,8 +896,12 @@ let fuRows = [], fuView = 'detail';
 
 async function loadFuel() {
   try {
-    fuRows = await sbFetch('fuel_transactions',
-      `org_id=eq.${_orgId}&order=tran_date.desc&select=*`);
+    const from = document.getElementById('filter-from')?.value;
+    const to   = document.getElementById('filter-to')?.value;
+    let q = `org_id=eq.${_orgId}&order=tran_date.desc&select=*`;
+    if (from) q += `&tran_date=gte.${from}`;
+    if (to)   q += `&tran_date=lte.${to}`;
+    fuRows = await sbFetch('fuel_transactions', q);
     renderFuel();
   } catch(e) {
     console.warn('Fuel load error:', e.message);

@@ -325,32 +325,40 @@ select.inline-sel:focus{border-color:var(--blue)}
         <input type="file" id="file-invoice" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event,'invoice')">
       </div>
 
-      <!-- FILE UPLOADS: optional -->
-      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:10px">Optional — Deductions</div>
-      <div class="upload-grid" style="margin-bottom:16px">
-        <div class="upload-card optional" id="card-ezpass" onclick="document.getElementById('file-ezpass').click()"
-             ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'ezpass')">
-          <div class="upload-card-icon">🛣️</div>
-          <div class="upload-card-title">EZ Pass CSV</div>
-          <div class="upload-card-sub">Tolls by TAG ID</div>
-          <div id="status-ezpass"><span class="upload-card-badge opt">Optional</span></div>
+      <!-- DEDUCTIONS FROM DB -->
+      <div id="ded-from-db" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;margin-bottom:16px;box-shadow:var(--sh)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Deductions — Auto from Database</div>
+          <span id="ded-db-status" style="font-size:11px;color:var(--text3)">Set week period above</span>
         </div>
-        <input type="file" id="file-ezpass" accept=".csv" style="display:none" onchange="handleFile(event,'ezpass')">
-
-        <div class="upload-card optional" id="card-fuel" onclick="document.getElementById('file-fuel').click()"
-             ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleDrop(event,'fuel')">
-          <div class="upload-card-icon">⛽</div>
-          <div class="upload-card-title">Fuel Card CSV</div>
-          <div class="upload-card-sub">Fuel by Card #</div>
-          <div id="status-fuel"><span class="upload-card-badge opt">Optional</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div id="ded-db-ezpass" style="display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;border:1px solid var(--border)">
+            <span style="font-size:18px">🛣️</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text)">EZ Pass</div>
+              <div id="ded-ez-detail" style="font-size:11px;color:var(--text3)">—</div>
+            </div>
+            <div id="ded-ez-amt" style="margin-left:auto;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text3)">—</div>
+          </div>
+          <div id="ded-db-fuel" style="display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;border:1px solid var(--border)">
+            <span style="font-size:18px">⛽</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--text)">Fuel Card</div>
+              <div id="ded-fuel-detail" style="font-size:11px;color:var(--text3)">—</div>
+            </div>
+            <div id="ded-fuel-amt" style="margin-left:auto;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text3)">—</div>
+          </div>
         </div>
-        <input type="file" id="file-fuel" accept=".csv" style="display:none" onchange="handleFile(event,'fuel')">
+        <div style="margin-top:10px;font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px">
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          EZ Pass and Fuel data imported in <a href="nexus-tms-imports.html" style="color:var(--blue)">Data Imports</a>. Matched to trucks by TAG ID and Card # from Equipment cards.
+        </div>
       </div>
 
       <div class="hint-box">
         <strong>How it works:</strong> Trips CSV and Invoice are matched by Load ID &amp; Trip ID automatically.
-        EZ Pass tolls match by TAG ID from truck card. Fuel matches by Card # from truck card.
-        PrePass ($7/wk) and Tablet deductions are read automatically from Equipment cards in Supabase.
+        EZ Pass &amp; Fuel deductions are pulled from the database for the selected week period.
+        PrePass ($7/wk) and Tablet deductions are read automatically from Equipment cards.
       </div>
 
       <div style="display:flex;gap:10px;align-items:center">
@@ -596,9 +604,95 @@ async function initApp() {
     S.drivers = drivers;
     S.dth     = dth || [];
     setConnStatus('ok', `${trucks.length} trucks · ${drivers.length} drivers`);
+    await loadDeductionsFromDB();
   } catch(e) {
     setConnStatus('err', 'DB error');
     toast('⚠ Could not load fleet data: ' + e.message);
+  }
+}
+
+// ── Load EZ Pass + Fuel deductions from DB for current period ─────────
+async function loadDeductionsFromDB() {
+  const pFrom = document.getElementById('period-from').value;
+  const pTo   = document.getElementById('period-to').value;
+  if (!pFrom || !pTo) return;
+
+  document.getElementById('ded-db-status').textContent = 'Loading…';
+  document.getElementById('ded-db-status').style.color = 'var(--text3)';
+
+  try {
+    const [ezRows, fuRows] = await Promise.all([
+      sbFetch('ezpass_transactions',
+        `org_id=eq.${_orgId}&exit_date=gte.${pFrom}T00:00:00&exit_date=lte.${pTo}T23:59:59&select=tag_id,amount`
+      ).catch(() => []),
+      sbFetch('fuel_transactions',
+        `org_id=eq.${_orgId}&tran_date=gte.${pFrom}&tran_date=lte.${pTo}&select=card_num,amt,total`
+      ).catch(() => []),
+    ]);
+
+    // Build tag→total map for EZ Pass
+    S.ezpass = {};
+    ezRows.forEach(r => {
+      const tag = String(r.tag_id).replace(/\D/g,'');
+      S.ezpass[tag] = (S.ezpass[tag] || 0) + Number(r.amount || 0);
+    });
+
+    // Build card→total map for Fuel
+    S.fuel = {};
+    fuRows.forEach(r => {
+      const card = String(r.card_num).trim();
+      S.fuel[card] = (S.fuel[card] || 0) + Number(r.amt || 0);
+    });
+
+    // Update UI
+    const ezTags  = Object.keys(S.ezpass).length;
+    const ezTotal = Object.values(S.ezpass).reduce((a,v) => a+v, 0);
+    const fuCards = Object.keys(S.fuel).length;
+    const fuTotal = Object.values(S.fuel).reduce((a,v) => a+v, 0);
+
+    const ezEl   = document.getElementById('ded-ez-amt');
+    const ezDet  = document.getElementById('ded-ez-detail');
+    const fuEl   = document.getElementById('ded-fuel-amt');
+    const fuDet  = document.getElementById('ded-fuel-detail');
+    const ezCard = document.getElementById('ded-db-ezpass');
+    const fuCard = document.getElementById('ded-db-fuel');
+
+    if (ezTotal > 0) {
+      ezEl.textContent = '$' + fmt(ezTotal);
+      ezEl.style.color = 'var(--red)';
+      ezDet.textContent = `${ezTags} tag${ezTags!==1?'s':''} · ${ezRows.length} transactions`;
+      ezCard.style.borderColor = 'var(--green)';
+      ezCard.style.background  = 'var(--green-l)';
+    } else {
+      ezEl.textContent = 'No data';
+      ezEl.style.color = 'var(--text3)';
+      ezDet.textContent = `No transactions for this period`;
+      ezCard.style.borderColor = '';
+      ezCard.style.background  = '';
+    }
+
+    if (fuTotal > 0) {
+      fuEl.textContent = '$' + fmt(fuTotal);
+      fuEl.style.color = 'var(--red)';
+      fuDet.textContent = `${fuCards} card${fuCards!==1?'s':''} · ${fuRows.length} transactions`;
+      fuCard.style.borderColor = 'var(--green)';
+      fuCard.style.background  = 'var(--green-l)';
+    } else {
+      fuEl.textContent = 'No data';
+      fuEl.style.color = 'var(--text3)';
+      fuDet.textContent = `No transactions for this period`;
+      fuCard.style.borderColor = '';
+      fuCard.style.background  = '';
+    }
+
+    const total = ezTotal + fuTotal;
+    document.getElementById('ded-db-status').textContent =
+      total > 0 ? `$${fmt(total)} total deductions loaded` : 'No deduction data for this period — upload in Data Imports';
+    document.getElementById('ded-db-status').style.color = total > 0 ? 'var(--green)' : 'var(--orange)';
+
+  } catch(e) {
+    document.getElementById('ded-db-status').textContent = 'Could not load deductions';
+    document.getElementById('ded-db-status').style.color = 'var(--red)';
   }
 }
 
@@ -625,6 +719,7 @@ function setLastWeek() {
   document.getElementById('period-from').value = fmtDateInput(lastSun);
   document.getElementById('period-to').value   = fmtDateInput(lastSat);
   updateWeekLabel();
+  if (typeof loadDeductionsFromDB === 'function' && _orgId) loadDeductionsFromDB();
 }
 function setThisWeek() {
   // Amazon week: Sunday→Saturday
@@ -639,6 +734,7 @@ function setThisWeek() {
   document.getElementById('period-from').value = fmtDateInput(sun);
   document.getElementById('period-to').value   = fmtDateInput(sat);
   updateWeekLabel();
+  if (typeof loadDeductionsFromDB === 'function' && _orgId) loadDeductionsFromDB();
 }
 function fmtDateInput(d) {
   return d.toISOString().split('T')[0];
@@ -649,8 +745,8 @@ function updateWeekLabel() {
   if (f && t) document.getElementById('week-label').textContent = fmtDate(f) + ' — ' + fmtDate(t);
 }
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('period-from').addEventListener('change', updateWeekLabel);
-  document.getElementById('period-to').addEventListener('change', updateWeekLabel);
+  document.getElementById('period-from').addEventListener('change', () => { updateWeekLabel(); loadDeductionsFromDB(); });
+  document.getElementById('period-to').addEventListener('change',   () => { updateWeekLabel(); loadDeductionsFromDB(); });
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -722,12 +818,10 @@ function storeFile(data, name, hint) {
   const isInvoice = cols.includes('invoice number') || cols.includes('gross pay') || cols.includes('item type');
   // Fuel second — has 'card #' + 'tran date', also has 'driver name' which would confuse Trips detector
   const isFuel    = !isInvoice && (cols.includes('card #') || (cols.includes('tran date') && cols.includes('amt')));
-  // EZPass: tag id or posting date + amount
-  const isEZPass  = !isInvoice && !isFuel && (cols.includes('tag id') || (cols.includes('posting date') && cols.includes('amount')));
-  // Trips: must have tractor vehicle id or driver name (and not be fuel/ezpass)
-  const isTrips   = !isInvoice && !isFuel && !isEZPass && (cols.includes('tractor vehicle id') || cols.includes('driver name'));
+  // Trips: must have tractor vehicle id or driver name
+  const isTrips   = !isInvoice && !isFuel && (cols.includes('tractor vehicle id') || cols.includes('driver name'));
 
-  const detected = isInvoice ? 'invoice' : isTrips ? 'trips' : isEZPass ? 'ezpass' : isFuel ? 'fuel' : hint;
+  const detected = isInvoice ? 'invoice' : isTrips ? 'trips' : hint;
 
   if (detected === 'trips') {
     S.trips = parseTrips(data);
@@ -735,12 +829,6 @@ function storeFile(data, name, hint) {
   } else if (detected === 'invoice') {
     S.invoice = parseInvoice(data);
     markDone('invoice', name, S.invoice.rows.length + ' rows · $' + fmt(S.invoice.total), buildSummary('invoice', S.invoice, data));
-  } else if (detected === 'ezpass') {
-    S.ezpass = parseEZPass(data);
-    markDone('ezpass', name, Object.keys(S.ezpass).length + ' tags', buildSummary('ezpass', S.ezpass, data));
-  } else if (detected === 'fuel') {
-    S.fuel = parseFuel(data);
-    markDone('fuel', name, Object.keys(S.fuel).length + ' cards', buildSummary('fuel', S.fuel, data));
   } else {
     toast('Could not detect file type: ' + name);
     return;
@@ -848,51 +936,8 @@ function parseInvoice(rows) {
   return { invoice_id: invId, rows: payments, total: payments.reduce((a,r)=>a+r.gross_pay,0) };
 }
 
-function parseEZPass(rows) {
-  const map = {};
-  const pFrom = document.getElementById('period-from').value;
-  const pTo   = document.getElementById('period-to').value;
-
-
-  rows.forEach(r => {
-    const tagRaw = str(r['TAG ID'] || r['Tag ID'] || r['tag_id'] || r['TagID'] || '');
-    const tag    = tagRaw.replace(/\D/g,'');
-    if (!tag) return;
-    const dateRaw = str(r['Exit Date'] || r['exit_date'] || r['Posting Date'] || r['posting_date'] || '');
-    const date    = normalizeDate(dateRaw);
-    if (pFrom && pTo && date && (date < pFrom || date > pTo)) {
-      return;
-    }
-    const amtRaw = str(r['Amount'] || r['amount'] || '0');
-    let amt = 0;
-    if (amtRaw.startsWith('(') && amtRaw.endsWith(')')) {
-      amt = parseFloat(amtRaw.replace(/[()$,]/g,'')) || 0;
-    } else {
-      amt = parseFloat(amtRaw.replace(/[$,]/g,'')) || 0;
-    }
-    map[tag] = (map[tag] || 0) + amt;
-  });
-  return map;
-}
-
-function parseFuel(rows) {
-  // Group fuel by Card # (raw string match)
-  const map = {};
-  const pFrom = document.getElementById('period-from').value;
-  const pTo   = document.getElementById('period-to').value;
-  rows.forEach(r => {
-    const card = str(r['Card #'] || r['card_num'] || r['CardNum'] || '');
-    if (!card) return;
-
-    const dateRaw = str(r['Tran Date'] || r['tran_date'] || r['Date'] || '');
-    const date    = normalizeDate(dateRaw);
-    if (pFrom && pTo && date && (date < pFrom || date > pTo)) return;
-
-    const amt = num(r['Amt'] || r['Amount'] || r['amt'] || 0);
-    map[card] = (map[card] || 0) + amt;
-  });
-  return map;
-}
+// EZ Pass and Fuel are now loaded from DB via loadDeductionsFromDB()
+// parseEZPass and parseFuel removed — data comes from ezpass_transactions and fuel_transactions tables
 
 // ══════════════════════════════════════════════════════════════════════
 // STEP 1 → STEP 2: PROCESS & MATCH
