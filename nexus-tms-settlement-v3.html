@@ -294,13 +294,26 @@ select.inline-sel:focus{border-color:var(--blue)}
     <div id="section-step1">
 
       <!-- PERIOD -->
-      <div class="period-bar">
-        <span class="period-label">Week</span>
+      <div class="period-bar" style="margin-bottom:8px">
+        <span class="period-label">Amazon week</span>
+        <span style="font-size:11px;color:var(--text3);margin-right:2px">Sun</span>
         <input type="date" class="period-input" id="period-from">
         <span class="period-sep">→</span>
         <input type="date" class="period-input" id="period-to">
+        <span style="font-size:11px;color:var(--text3);margin-left:2px">Sat</span>
         <span class="period-quick" onclick="setLastWeek()">Set last week</span>
         <span class="period-quick" onclick="setThisWeek()">Set this week</span>
+      </div>
+      <div class="period-bar" style="margin-bottom:20px;background:var(--surface2)">
+        <span class="period-label" style="color:var(--blue)">Deductions period</span>
+        <span style="font-size:11px;color:var(--text3);margin-right:2px">Mon</span>
+        <input type="date" class="period-input" id="ded-from" style="border-color:var(--blue)">
+        <span class="period-sep">→</span>
+        <input type="date" class="period-input" id="ded-to" style="border-color:var(--blue)">
+        <span style="font-size:11px;color:var(--text3);margin-left:2px">Sun</span>
+        <span class="period-quick" onclick="setDedLastWeek()" style="color:var(--blue)">Set last week</span>
+        <span class="period-quick" onclick="setDedThisWeek()" style="color:var(--blue)">Set this week</span>
+        <span style="font-size:11px;color:var(--text3);margin-left:4px">EZ Pass &amp; Fuel Card</span>
       </div>
 
       <!-- FILE UPLOADS: required -->
@@ -329,7 +342,7 @@ select.inline-sel:focus{border-color:var(--blue)}
       <div id="ded-from-db" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 18px;margin-bottom:16px;box-shadow:var(--sh)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Deductions — Auto from Database</div>
-          <span id="ded-db-status" style="font-size:11px;color:var(--text3)">Set week period above</span>
+          <span id="ded-db-status" style="font-size:11px;color:var(--text3)">Set deductions period above</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div id="ded-db-ezpass" style="display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:var(--r-sm);padding:10px 14px;border:1px solid var(--border)">
@@ -594,6 +607,7 @@ const db = { upsert: sbUpsert };
 async function initApp() {
   setConnStatus('loading', 'loading…');
   setLastWeek();
+  setDedLastWeek();
   try {
     const [trucks, drivers, dth] = await Promise.all([
       sbFetch('trucks',  `org_id=eq.${_orgId}&status=eq.active&select=id,unit,plate,owner,driver,driver_type,ded,truck_payment`),
@@ -613,8 +627,8 @@ async function initApp() {
 
 // ── Load EZ Pass + Fuel deductions from DB for current period ─────────
 async function loadDeductionsFromDB() {
-  const pFrom = document.getElementById('period-from').value;
-  const pTo   = document.getElementById('period-to').value;
+  const pFrom = document.getElementById('ded-from').value || document.getElementById('period-from').value;
+  const pTo   = document.getElementById('ded-to').value   || document.getElementById('period-to').value;
   if (!pFrom || !pTo) return;
 
   document.getElementById('ded-db-status').textContent = 'Loading…';
@@ -739,6 +753,34 @@ function setThisWeek() {
 function fmtDateInput(d) {
   return d.toISOString().split('T')[0];
 }
+
+// Deductions period: Mon→Sun (one week behind Amazon Sun→Sat)
+function setDedLastWeek() {
+  const today = new Date();
+  const dow = today.getDay(); // 0=Sun
+  // Last Sunday (end of deductions week)
+  const lastSun = new Date(today);
+  lastSun.setDate(today.getDate() - dow);
+  // Last Monday (start of deductions week)
+  const lastMon = new Date(lastSun);
+  lastMon.setDate(lastSun.getDate() - 6);
+  document.getElementById('ded-from').value = fmtDateInput(lastMon);
+  document.getElementById('ded-to').value   = fmtDateInput(lastSun);
+  if (typeof loadDeductionsFromDB === 'function' && _orgId) loadDeductionsFromDB();
+}
+function setDedThisWeek() {
+  const today = new Date();
+  const dow = today.getDay();
+  // This Monday
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - ((dow + 6) % 7));
+  // This Sunday
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  document.getElementById('ded-from').value = fmtDateInput(mon);
+  document.getElementById('ded-to').value   = fmtDateInput(sun);
+  if (typeof loadDeductionsFromDB === 'function' && _orgId) loadDeductionsFromDB();
+}
 function updateWeekLabel() {
   const f = document.getElementById('period-from').value;
   const t = document.getElementById('period-to').value;
@@ -747,6 +789,8 @@ function updateWeekLabel() {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('period-from').addEventListener('change', () => { updateWeekLabel(); loadDeductionsFromDB(); });
   document.getElementById('period-to').addEventListener('change',   () => { updateWeekLabel(); loadDeductionsFromDB(); });
+  document.getElementById('ded-from').addEventListener('change', () => loadDeductionsFromDB());
+  document.getElementById('ded-to').addEventListener('change',   () => loadDeductionsFromDB());
 });
 
 // ══════════════════════════════════════════════════════════════════════
