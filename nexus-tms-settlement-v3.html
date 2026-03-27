@@ -389,8 +389,13 @@ select.inline-sel:focus{border-color:var(--blue)}
     <div id="section-step3" style="display:none">
       <div id="summary-bar-wrap"></div>
       <div class="settle-cards" id="settle-cards"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-outline" onclick="resetAll()">← New Settlement</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-outline btn-lg" id="btn-zip-all" onclick="downloadZipAll()">
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span id="btn-zip-label">Download ZIP</span>
+        </button>
         <button class="btn btn-green btn-lg" onclick="printAllSettlements()">
           <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
           Print All
@@ -1357,7 +1362,7 @@ async function saveSettlementsToDb() {
       driver_pay_pct: s.ctDriverPct || s.payRate,
       driver_pay_amt: Math.round(s.ctDriverAmt * 100) / 100,
       manual_adjustments: adjs,
-      net_pay: Math.round((s.net + adjTotal) * 100) / 100,
+      net_pay: Math.round(((s.dType === 'CT' ? s.ctDriverAmt : s.net) + adjTotal) * 100) / 100,
       is_ct_driver_stmt: false,
       invoice_id: S.invoice.invoice_id || null,
       loads_count: a.loads.length,
@@ -1522,8 +1527,8 @@ function buildSettleCard(a, i, period) {
       </div>
       <div class="sc-right">
         <div>
-          <div class="sc-net-label">${s.dType==='CT'?'Net to Co':'Net to Driver'}</div>
-          <div class="sc-net-val ${s.dType==='OO'?'oo':''}">$${fmt(s.net)}</div>
+          <div class="sc-net-label">${s.dType==='CT'?'Driver Net Pay':'Net to Driver'}</div>
+          <div class="sc-net-val ${s.dType==='OO'?'oo':''}">$${fmt(s.dType==='CT' ? s.ctDriverAmt : s.net)}</div>
         </div>
         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color:var(--text3);flex-shrink:0;transition:transform .2s" id="sc-chevron-${i}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
       </div>
@@ -1575,7 +1580,7 @@ function buildSettleCard(a, i, period) {
           </div>
 
           <div class="ded-row net-row" id="net-row-${i}">
-            <span class="ded-label">${s.dType==='CT'?'NET TO COMPANY':'NET TO DRIVER'}</span>
+            <span class="ded-label">NET TO DRIVER</span>
             <span class="ded-dots"></span>
             <span class="ded-val bold grn">$${fmt(s.net)}</span>
           </div>
@@ -1646,7 +1651,7 @@ function printSettlement(i) {
   const s      = calcSettlement(a);
   const adjs   = (adjState[i] || []).filter(Boolean);
   const adjTotal = adjs.reduce((sum,x) => sum+(x.amt||0), 0);
-  const net    = s.net + adjTotal;
+  const net    = s.dType === 'CT' ? s.ctDriverAmt + adjTotal : s.net + adjTotal;
   const period = document.getElementById('period-from').value + ' — ' + document.getElementById('period-to').value;
   const pFrom  = document.getElementById('period-from').value;
   const pTo    = document.getElementById('period-to').value;
@@ -1751,8 +1756,11 @@ function printSettlement(i) {
     <div class="sec-title">Deductions</div>
     <table class="ded-tbl">
       <tr class="gross-row"><td class="dl">Gross Revenue</td><td class="dv">$${fmt(a.gross)}</td></tr>
-      ${s.companyCutAmt > 0 ? DR(`Company Cut (${s.companyCutPct}%)`, s.companyCutAmt) : ''}
-      ${s.dispatchAmt > 0 ? DR(`Dispatch Fee (${s.dispatchPct}%)`, s.dispatchAmt) : ''}
+      ${dType === 'CT'
+        ? `<tr><td class="dl">Driver Pay Rate</td><td class="dv">${s.ctDriverPct}% of gross</td></tr>`
+        : `
+      ${s.companyCutAmt > 0 ? DR(\`Company Cut (\${s.companyCutPct}%)\`, s.companyCutAmt) : ''}
+      ${s.dispatchAmt > 0 ? DR(\`Dispatch Fee (\${s.dispatchPct}%)\`, s.dispatchAmt) : ''}
       ${s.insuranceAmt > 0 ? DR('Insurance', s.insuranceAmt) : ''}
       ${s.physdmgAmt > 0 ? DR('Physical Damage', s.physdmgAmt) : ''}
       ${s.ezpassAmt > 0 ? DR('EZ Pass Tolls', s.ezpassAmt) : ''}
@@ -1764,12 +1772,12 @@ function printSettlement(i) {
       ${s.trailerrentAmt > 0 ? DR('Trailer Rent', s.trailerrentAmt) : ''}
       ${s.samsaraAmt > 0 ? DR('Samsara', s.samsaraAmt) : ''}
       ${s.truckPayment > 0 ? DR('Truck Payment', s.truckPayment) : ''}
-      ${s.ctDriverAmt > 0 ? DR(`Driver Pay (${s.ctDriverPct}%)`, s.ctDriverAmt) : ''}
+      `}
       ${adjRows}
     </table>
 
     <div class="net-row">
-      <span class="net-label">${dType==='CT'?'NET TO COMPANY':'NET TO DRIVER'}</span>
+      <span class="net-label">NET TO DRIVER</span>
       <span class="net-val">$${fmt(net)}</span>
     </div>
 
@@ -1800,6 +1808,171 @@ function printSettlement(i) {
 
 function printAllSettlements() {
   S.assigns.forEach((_, i) => setTimeout(() => printSettlement(i), i * 600));
+}
+
+// ── Build HTML for a settlement (shared between print and ZIP) ────────
+function buildSettlementHTML(i) {
+  const a      = S.assigns[i];
+  const s      = calcSettlement(a);
+  const adjs   = (adjState[i] || []).filter(Boolean);
+  const adjTotal = adjs.reduce((sum,x) => sum+(x.amt||0), 0);
+  const pFrom  = document.getElementById('period-from').value;
+  const pTo    = document.getElementById('period-to').value;
+  const periodLabel = fmtDate(pFrom) + ' — ' + fmtDate(pTo);
+  const driverName  = a.driverName || '—';
+  const truck  = a.truckObj;
+  const driver = a.driverObj;
+  const dType  = s.dType;
+  const dTypeLabel = {P:'Partner',POO:'Partner OO',OO:'Owner-Op',CT:'Company Truck',Driver:'Driver'}[dType] || dType;
+  const net    = dType === 'CT' ? s.ctDriverAmt + adjTotal : s.net + adjTotal;
+
+  const DR = (label, amt, sign='-') => amt === 0 ? '' :
+    `<tr><td class="dl">${label}</td><td class="dv" style="color:${sign==='-'?'#DC2626':'#059669'}">${sign === '-' ? '−' : '+'} $${fmt(Math.abs(amt))}</td></tr>`;
+
+  const adjRows = adjs.map(x =>
+    `<tr><td class="dl">${x.label||'Adjustment'}</td><td class="dv" style="color:${x.amt>=0?'#059669':'#DC2626'}">${x.amt>=0?'+':'-'} $${fmt(Math.abs(x.amt))}</td></tr>`
+  ).join('');
+
+  const loadsRows = a.loads.map(l =>
+    `<tr>
+      <td style="color:#64748B">${l.id}${l.type==='tour'?' <span style="color:#1A56DB;font-weight:600">Tour×'+l.legs.length+'</span>':''}</td>
+      <td style="color:#4A5568">${l.date||''}</td>
+      <td>${fc(l.origin)} → ${fc(l.destination)}</td>
+      <td style="text-align:right;color:#64748B">${Math.round(l.miles)}</td>
+      <td style="text-align:right;font-weight:700;color:#0D1829">$${fmt(l.gross)}</td>
+    </tr>`
+  ).join('');
+
+  const dedRows = dType === 'CT'
+    ? `<tr><td class="dl">Driver Pay Rate</td><td class="dv">${s.ctDriverPct}% of gross</td></tr>`
+    : [
+        s.companyCutAmt > 0 ? DR(`Company Cut (${s.companyCutPct}%)`, s.companyCutAmt) : '',
+        s.dispatchAmt > 0   ? DR(`Dispatch Fee (${s.dispatchPct}%)`, s.dispatchAmt) : '',
+        s.insuranceAmt > 0  ? DR('Insurance', s.insuranceAmt) : '',
+        s.physdmgAmt > 0    ? DR('Physical Damage', s.physdmgAmt) : '',
+        s.ezpassAmt > 0     ? DR('EZ Pass Tolls', s.ezpassAmt) : '',
+        s.fuelAmt > 0       ? DR('Fuel Card', s.fuelAmt) : '',
+        s.prepassAmt > 0    ? DR('PrePass', s.prepassAmt) : '',
+        s.tabletAmt > 0     ? DR('Tablet / Device', s.tabletAmt) : '',
+        s.iftaAmt > 0       ? DR('IFTA', s.iftaAmt) : '',
+        s.adminAmt > 0      ? DR('Admin Fee', s.adminAmt) : '',
+        s.trailerrentAmt > 0? DR('Trailer Rent', s.trailerrentAmt) : '',
+        s.samsaraAmt > 0    ? DR('Samsara', s.samsaraAmt) : '',
+        s.truckPayment > 0  ? DR('Truck Payment', s.truckPayment) : '',
+      ].join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:'Helvetica Neue',Arial,sans-serif;margin:0;padding:18px 28px;color:#0D1829;font-size:11px;line-height:1.4}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:2px solid #0D1829;margin-bottom:14px}
+    .header-left{flex:1}.header-right{text-align:right;min-width:190px}
+    .co-name{font-size:12px;font-weight:700;color:#0D1829;margin-bottom:3px}
+    .co-info{font-size:11px;color:#64748B;line-height:1.6}
+    .doc-label{font-size:20px;font-weight:800;color:#0D1829;letter-spacing:-0.5px;line-height:1}
+    .doc-period{font-size:13px;color:#64748B;margin-top:4px}
+    .info-block{margin-top:8px}.info-row{display:flex;align-items:center;gap:10px;padding:2px 0;border-bottom:1px solid #F1F5F9}
+    .info-lbl{font-size:13px;color:#94A3B8;min-width:72px}.info-val{font-size:13px;font-weight:600;color:#0D1829}
+    .badge{padding:2px 9px;border-radius:20px;font-size:13px;font-weight:600;background:#E0E7FF;color:#3730A3}
+    .sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#94A3B8;margin:12px 0 5px;padding-bottom:3px;border-bottom:1px solid #E2E8F0}
+    table{width:100%;border-collapse:collapse}
+    .loads-tbl th{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#94A3B8;padding:3px 6px;background:#F8F9FA;border-bottom:1px solid #E2E8F0;text-align:left}
+    .loads-tbl th:last-child,.loads-tbl td:last-child,.loads-tbl th:nth-child(4),.loads-tbl td:nth-child(4){text-align:right}
+    .loads-tbl td{font-size:10px;padding:3px 6px;border-bottom:1px solid #F1F5F9;color:#0D1829}
+    .loads-tbl tr:last-child td{background:#F4F6FA;font-weight:700;border-bottom:none}
+    .ded-tbl{width:100%;margin-bottom:4px;border-collapse:collapse}
+    .ded-tbl td{font-size:10px;padding:3px 0;color:#0D1829;border-bottom:1px solid #F8F9FA}
+    .dl{color:#4A5568;font-weight:400}.dv{text-align:right;font-weight:600}
+    .gross-row td{font-weight:700;border-bottom:2px solid #E2E8F0;padding-bottom:8px}
+    .net-row{margin-top:8px;padding:8px 0;border-top:2px solid #0D1829;display:flex;justify-content:space-between;align-items:center}
+    .net-label{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#0D1829}
+    .net-val{font-size:20px;font-weight:800;color:#059669}
+    .footer{margin-top:24px;padding-top:10px;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;font-size:11px;color:#94A3B8}
+  </style></head><body>
+    <div class="header">
+      <div class="header-left">
+        <div class="doc-label">SETTLEMENT <span style="font-size:18px;color:#1A56DB">#${a.settlId}</span></div>
+        <div class="doc-period">${periodLabel}</div>
+        <div class="info-block">
+          <div class="info-row"><span class="info-lbl">Unit</span><span class="info-val">${truck ? truck.unit : a.truck}</span></div>
+          <div class="info-row"><span class="info-lbl">Driver</span><span class="info-val">${driverName}</span></div>
+          <div class="info-row"><span class="info-lbl">Status</span><span class="info-val"><span class="badge">${dTypeLabel}${s.payRate&&s.payRate!==100?' · '+s.payRate+'%':''}</span></span></div>
+          ${driver&&driver.company?'<div class="info-row"><span class="info-lbl">Company</span><span class="info-val">'+driver.company+'</span></div>':''}        </div>
+      </div>
+      <div class="header-right">
+        <div class="co-name">ZTA Transportation LLC</div>
+        <div class="co-info">2100 Grant Ave Apt 10, Philadelphia, PA 19115<br>Tel: 272-372-0000</div>
+      </div>
+    </div>
+    <div class="sec-title">Loads</div>
+    <table class="loads-tbl">
+      <thead><tr><th>ID / Trip</th><th>Date</th><th>Route</th><th>Miles</th><th>Gross</th></tr></thead>
+      <tbody>
+        ${loadsRows}
+        <tr><td colspan="3">Total</td><td style="text-align:right;font-family:monospace">${Math.round(a.miles).toLocaleString()}</td><td style="text-align:right;font-family:monospace">$${fmt(a.gross)}</td></tr>
+      </tbody>
+    </table>
+    <div class="sec-title">${dType==='CT' ? 'Driver Pay' : 'Deductions'}</div>
+    <table class="ded-tbl">
+      <tr class="gross-row"><td class="dl">Gross Revenue</td><td class="dv">$${fmt(a.gross)}</td></tr>
+      ${dedRows}
+      ${adjRows}
+    </table>
+    <div class="net-row">
+      <span class="net-label">NET TO DRIVER</span>
+      <span class="net-val">$${fmt(net)}</span>
+    </div>
+    <div class="footer">
+      <span>Generated by NEXUS · ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span>
+      <span style="font-family:monospace;font-size:10px;color:#CBD5E1">${S.invoice.invoice_id ? 'Invoice: '+S.invoice.invoice_id : ''}</span>
+    </div>
+  </body></html>`;
+}
+
+// ── Download ZIP of all settlements ───────────────────────────────────
+async function downloadZipAll() {
+  const btn   = document.getElementById('btn-zip-all');
+  const label = document.getElementById('btn-zip-label');
+  label.textContent = 'Building ZIP…';
+  btn.disabled = true;
+
+  try {
+    // Load JSZip from CDN
+    if (!window.JSZip) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    const zip = new JSZip();
+    const pFrom = document.getElementById('period-from').value;
+    const pTo   = document.getElementById('period-to').value;
+    const weekLabel = pFrom + '_' + pTo;
+
+    S.assigns.forEach((a, i) => {
+      label.textContent = `Building ${i+1}/${S.assigns.length}…`;
+      const html = buildSettlementHTML(i);
+      const filename = `${a.settlId}-${(a.driverName||'settlement').replace(/\s+/g,'-')}.html`;
+      zip.file(filename, html);
+    });
+
+    label.textContent = 'Generating ZIP…';
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `NEXUS-Settlements-${weekLabel}.zip`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(`✓ ZIP downloaded — ${S.assigns.length} statements`);
+  } catch(e) {
+    toast('ZIP failed: ' + e.message, true);
+  } finally {
+    label.textContent = 'Download ZIP';
+    btn.disabled = false;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════
