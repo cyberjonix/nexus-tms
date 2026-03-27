@@ -285,7 +285,7 @@ async function loadHistory(){
   document.getElementById('table-body').innerHTML='<div class="loading"><div class="spinner"></div> Loading…</div>';
   try{
     const rows=await sbFetch('settlements',
-      `org_id=eq.${_orgId}&order=week_start.desc&limit=${PAGE_SIZE}&offset=${(page-1)*PAGE_SIZE}&select=settle_id,week_start,week_end,driver_name,driver_type,truck_unit,gross,net_pay,dispatch_amt,dispatch_pct,deductions_total,driver_pay_amt,driver_pay_pct,status,loads,deductions,manual_adjustments,is_ct_driver_stmt,invoice_id,created_at`
+      `org_id=eq.${_orgId}&order=week_start.desc&limit=${PAGE_SIZE}&offset=${(page-1)*PAGE_SIZE}&select=id,settle_id,week_start,week_end,driver_name,driver_type,truck_unit,gross,net_pay,dispatch_amt,dispatch_pct,deductions_total,driver_pay_amt,driver_pay_pct,status,loads,deductions,manual_adjustments,is_ct_driver_stmt,invoice_id,created_at`
     );
     allRows=rows;
     populateFilters(rows);
