@@ -626,7 +626,7 @@ async function loadDeductionsFromDB() {
         `org_id=eq.${_orgId}&exit_date=gte.${pFrom}T00:00:00&exit_date=lte.${pTo}T23:59:59&select=tag_id,amount`
       ).catch(() => []),
       sbFetch('fuel_transactions',
-        `org_id=eq.${_orgId}&tran_date=gte.${pFrom}&tran_date=lte.${pTo}&select=card_num,amt,total`
+        `org_id=eq.${_orgId}&tran_date=gte.${pFrom}&tran_date=lte.${pTo}&select=card_num,amt,fees`
       ).catch(() => []),
     ]);
 
@@ -637,11 +637,11 @@ async function loadDeductionsFromDB() {
       S.ezpass[tag] = (S.ezpass[tag] || 0) + Number(r.amount || 0);
     });
 
-    // Build card→total map for Fuel
+    // Build card→total map for Fuel (total = amt + fees)
     S.fuel = {};
     fuRows.forEach(r => {
       const card = String(r.card_num).trim();
-      S.fuel[card] = (S.fuel[card] || 0) + Number(r.amt || 0);
+      S.fuel[card] = (S.fuel[card] || 0) + Number(r.amt || 0) + Number(r.fees || 0);
     });
 
     // Update UI
